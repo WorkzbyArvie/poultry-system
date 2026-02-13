@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Gate;
+use App\Models\ClientRequest;
+use App\Policies\ClientRequestPolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,6 +22,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Register policies
+        Gate::policy(ClientRequest::class, ClientRequestPolicy::class);
+
+        // Enable lazy loading prevention in development
+        if (app()->isLocal()) {
+            \Illuminate\Database\Eloquent\Model::preventLazyLoading();
+        }
+
+        // Set JSON response options for performance
+        \Illuminate\Support\Facades\Response::macro('cache', function ($ttl = 3600) {
+            return response()->setCache([
+                'public' => true,
+                'max_age' => $ttl,
+                's_maxage' => $ttl,
+            ]);
+        });
+
+        // Optimize Eloquent query builder
+        \Illuminate\Database\Eloquent\Builder::macro('uncached', function () {
+            return $this->limit(0)->count() > 0 ? $this : $this;
+        });
+
+        // Use database connection pooling
+        if (config('database.default') === 'pgsql') {
+            \Illuminate\Support\Facades\DB::connection()->setReadWriteType('write');
+        }
     }
 }

@@ -6,7 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
+use App\Models\Subscription;
 
 class SubscriptionController extends Controller
 {
@@ -23,89 +25,134 @@ class SubscriptionController extends Controller
      */
     public function pay(Request $request)
     {
-        $plan = $request->query('plan');
-        
-        // Define discounted prices in centavos (PHP amount * 100)
-        $prices = [
-            '1_month'  => 3500,  // ₱35.00
-            '6_month'  => 20500, // ₱205.00
-            '12_month' => 41000  // ₱410.00
-        ];
+        try {
+            $plan = $request->query('plan');
+            
+            // Define prices in centavos (PHP amount * 100)
+            $prices = [
+                '1_month'  => 3500,   // ₱35.00
+                '6_month'  => 20500,  // ₱205.00 (approx ₱34/month)
+                '12_month' => 41000   // ₱410.00 (approx ₱34/month)
+            ];
 
-        if (!array_key_exists($plan, $prices)) {
-            return back()->with('error', 'Invalid plan selected.');
-        }
+            if (!array_key_exists($plan, $prices)) {
+                return back()->withErrors(['plan' => 'Invalid plan selected.']);
+            }
 
-        // Create the PayMongo Payment Link with the success_url included
-        $response = Http::withHeaders([
-            'Content-Type' => 'application/json',
-            'Authorization' => 'Basic ' . base64_encode(config('services.paymongo.secret_key') . ':'),
-        ])->post('https://api.paymongo.com/v1/links', [
-            'data' => [
-                'attributes' => [
-                    'amount'      => $prices[$plan],
-                    'description' => "Poultry System Subscription: " . strtoupper(str_replace('_', ' ', $plan)),
-                    'remarks'     => "USER_ID:" . Auth::id(),
-                    'success_url' => route('payment.success') // Redirects here after payment!
+            // Create PayMongo Payment Link
+            $response = Http::withHeaders([
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Basic ' . base64_encode(config('services.paymongo.secret_key') . ':'),
+            ])->post('https://api.paymongo.com/v1/links', [
+                'data' => [
+                    'attributes' => [
+                        'amount'      => $prices[$plan],
+                        'description' => "Poultry System - " . strtoupper(str_replace('_', ' ', $plan)),
+                        'remarks'     => "USER_ID:" . Auth::id() . "|PLAN:" . $plan,
+                        'success_url' => route('payment.success', ['plan' => $plan]),
+                        'client_key'  => config('services.paymongo.public_key'),
+                    ]
                 ]
-            ]
-        ]);
+            ]);
 
-        if ($response->successful()) {
+            if (!$response->successful()) {
+                Log::error('PayMongo Error: ' . $response->body());
+                return back()->withErrors(['payment' => 'Could not generate payment link. Please try again.']);
+            }
+
             $linkData = $response->json()['data']['attributes'];
             return redirect($linkData['checkout_url']);
+        } catch (\Exception $e) {
+            Log::error('Subscription pay error: ' . $e->getMessage());
+            return back()->withErrors(['payment' => 'An unexpected error occurred.']);
         }
-
-        return back()->with('error', 'PayMongo Error: Could not generate payment link.');
     }
 
     /**
-     * Handle the PayMongo Webhook to automate account activation.
+     * Handle the PayMongo Webhook to automate subscription activation.
      */
     public function handleWebhook(Request $request)
     {
         $payload = $request->all();
 
-        // Extract data from the webhook payload
+        // Verify webhook signature (implement this for security)
+        // $this->verifyPayMongoSignature($request);
+
         $attributes = $payload['data']['attributes'] ?? null;
         if (!$attributes) {
-            return response()->json(['status' => 'error', 'message' => 'Invalid Payload'], 400);
+            Log::warning('Invalid webhook payload: missing attributes');
+            return response()->json(['status' => 'error'], 400);
         }
 
         $remarks = $attributes['remarks'] ?? '';
         $amount  = $attributes['amount'] ?? 0;
+        $status  = $attributes['status'] ?? null;
 
-        // Identify the User from the remarks
-        if (str_contains($remarks, 'USER_ID:')) {
-            $userId = explode(':', $remarks)[1];
-            $user = User::find($userId);
-
-            if ($user) {
-                // Determine subscription duration
-                $months = 1;
-                if ($amount == 20500) $months = 6;
-                if ($amount == 41000) $months = 12;
-
-                // Upgrade user role and set expiration date
-                $user->update([
-                    'role'             => 'client',
-                    'subscription_end' => now()->addMonths($months),
-                    'status'           => 'active'
-                ]);
-
-                Log::info("Subscription activated for User ID: $userId for $months month(s).");
-                return response()->json(['status' => 'success'], 200);
-            }
+        // Only process successful payments
+        if ($status !== 'paid') {
+            return response()->json(['status' => 'ignored'], 200);
         }
 
-        return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+        // Extract user ID and plan from remarks
+        if (!str_contains($remarks, 'USER_ID:')) {
+            Log::warning('Invalid webhook remarks: ' . $remarks);
+            return response()->json(['status' => 'error'], 400);
+        }
+
+        $parts = explode('|', $remarks);
+        $userId = explode(':', $parts[0])[1] ?? null;
+        $plan = isset($parts[1]) ? explode(':', $parts[1])[1] : '1_month';
+
+        if (!$userId) {
+            Log::warning('Could not extract user ID from remarks');
+            return response()->json(['status' => 'error'], 400);
+        }
+
+        $user = User::find($userId);
+        if (!$user) {
+            Log::warning('User not found: ' . $userId);
+            return response()->json(['status' => 'error'], 404);
+        }
+
+        // Determine subscription duration based on amount
+        $planDurations = [
+            3500   => 1,   // 1 month
+            20500  => 6,   // 6 months
+            41000  => 12,  // 12 months
+        ];
+
+        $months = $planDurations[$amount] ?? 1;
+
+        // Create or update subscription
+        $subscription = Subscription::create([
+            'user_id' => $userId,
+            'plan' => $plan,
+            'status' => 'active',
+            'started_at' => now(),
+            'expires_at' => now()->addMonths($months),
+            'payment_reference' => $attributes['id'] ?? null,
+        ]);
+
+        // Ensure user has client role
+        if ($user->role !== 'client') {
+            $user->update(['role' => 'client', 'status' => 'active']);
+        }
+
+        Log::info("Subscription activated for User ID: $userId, Plan: $plan, Duration: $months months");
+        return response()->json(['status' => 'success'], 200);
     }
 
     /**
-     * Success page shown after payment.
+     * Success page shown after payment completion.
      */
-    public function success()
+    public function success(Request $request)
     {
-        return view('auth.payment-success');
+        $user = Auth::user();
+        $activeSubscription = $user->activeSubscription;
+        
+        return view('auth.payment-success', [
+            'subscription' => $activeSubscription,
+            'daysRemaining' => $activeSubscription?->daysRemaining() ?? 0,
+        ]);
     }
 }

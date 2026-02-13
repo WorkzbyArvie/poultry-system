@@ -4,7 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "server": "php -S 127.0.0.1:8000 -t public/",
+        "dev:full": "concurrently \"npm run server\" \"npm run dev\""
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",

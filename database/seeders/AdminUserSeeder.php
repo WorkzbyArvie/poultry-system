@@ -11,11 +11,17 @@ class AdminUserSeeder extends Seeder
      * Run the database seeds.
      */
     public function run(): void
-{
-    \App\Models\User::create([
-        'name' => 'Admin User',
-        'email' => 'admin@poultry.com',
-        'password' => bcrypt('admin123'), // This encrypts your password
-    ]);
-}
+    {
+        // Delete existing admin if exists
+        \App\Models\User::where('email', 'superadmin@poultry.com')->delete();
+        
+        \App\Models\User::create([
+            'name' => 'Super Admin',
+            'email' => 'superadmin@poultry.com',
+            'password' => bcrypt('SuperAdmin@2026'),
+            'role' => 'superadmin',
+            'status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+    }
 }
