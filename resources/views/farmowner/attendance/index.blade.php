@@ -14,7 +14,7 @@
     <form method="GET" class="flex items-center gap-4">
         <label class="text-sm font-medium text-gray-300">Date:</label>
         <input type="date" name="date" value="{{ $date->format('Y-m-d') }}"
-            class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500"
+            class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500"
             onchange="this.form.submit()">
         <a href="{{ route('attendance.index', ['date' => now()->format('Y-m-d')]) }}" class="text-green-400 hover:text-green-300">Today</a>
     </form>

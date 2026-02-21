@@ -45,8 +45,8 @@ class ReportController extends Controller
         // Income breakdown
         $income = IncomeRecord::byFarmOwner($farmOwner->id)
             ->byDateRange($startDate, $endDate)
-            ->selectRaw('source, SUM(amount) as total')
-            ->groupBy('source')
+            ->selectRaw('category, SUM(amount) as total')
+            ->groupBy('category')
             ->get();
 
         $totalIncome = $income->sum('total');
@@ -100,26 +100,29 @@ class ReportController extends Controller
                 return $flock;
             });
 
+        // Cache flock IDs to prevent repeated queries
+        $flockIds = Flock::byFarmOwner($farmOwner->id)->pluck('id');
+
         // Production stats (eggs)
-        $eggProduction = FlockRecord::whereIn('flock_id', Flock::byFarmOwner($farmOwner->id)->pluck('id'))
+        $eggProduction = FlockRecord::whereIn('flock_id', $flockIds)
             ->whereBetween('record_date', [$startDate, $endDate])
             ->selectRaw('SUM(eggs_collected) as collected, SUM(eggs_broken) as broken')
             ->first();
 
         // Mortality stats
-        $mortalityStats = FlockRecord::whereIn('flock_id', Flock::byFarmOwner($farmOwner->id)->pluck('id'))
+        $mortalityStats = FlockRecord::whereIn('flock_id', $flockIds)
             ->whereBetween('record_date', [$startDate, $endDate])
             ->selectRaw('SUM(mortality_today) as total_mortality')
             ->first();
 
         // Feed consumption
-        $feedConsumption = FlockRecord::whereIn('flock_id', Flock::byFarmOwner($farmOwner->id)->pluck('id'))
+        $feedConsumption = FlockRecord::whereIn('flock_id', $flockIds)
             ->whereBetween('record_date', [$startDate, $endDate])
             ->selectRaw('SUM(feed_consumed_kg) as total_feed')
             ->first();
 
         // Daily egg production trend
-        $eggTrend = FlockRecord::whereIn('flock_id', Flock::byFarmOwner($farmOwner->id)->pluck('id'))
+        $eggTrend = FlockRecord::whereIn('flock_id', $flockIds)
             ->whereBetween('record_date', [$startDate, $endDate])
             ->selectRaw('record_date, SUM(eggs_collected) as eggs')
             ->groupBy('record_date')
@@ -183,12 +186,13 @@ class ReportController extends Controller
         $totalOrders = $orders->sum('count');
         $totalSales = $orders->where('status', 'completed')->sum('total');
 
-        // Top customers
-        $topCustomers = Order::where('farm_owner_id', $farmOwner->id)
-            ->whereBetween('created_at', [$startDate, $endDate])
-            ->where('status', 'completed')
-            ->selectRaw('customer_name, COUNT(*) as order_count, SUM(total_amount) as total')
-            ->groupBy('customer_name')
+        // Top customers (join with users table since Order has consumer_id)
+        $topCustomers = Order::where('orders.farm_owner_id', $farmOwner->id)
+            ->whereBetween('orders.created_at', [$startDate, $endDate])
+            ->where('orders.status', 'completed')
+            ->join('users', 'orders.consumer_id', '=', 'users.id')
+            ->selectRaw('users.name as customer_name, COUNT(*) as order_count, SUM(orders.total_amount) as total')
+            ->groupBy('users.id', 'users.name')
             ->orderByDesc('total')
             ->limit(10)
             ->get();
@@ -243,10 +247,10 @@ class ReportController extends Controller
                 return $item;
             });
 
-        // COD collection
+        // COD collection (cod_collected is boolean, so count collected vs total COD amount)
         $codStats = Delivery::byFarmOwner($farmOwner->id)
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->selectRaw('SUM(cod_amount) as total_cod, SUM(cod_collected) as collected_cod')
+            ->selectRaw('SUM(cod_amount) as total_cod, SUM(CASE WHEN cod_collected = true THEN cod_amount ELSE 0 END) as collected_cod')
             ->first();
 
         return view('farmowner.reports.delivery', compact(
@@ -384,7 +388,7 @@ class ReportController extends Controller
                                 fputcsv($file, [
                                     $record->income_date->format('Y-m-d'),
                                     'Income',
-                                    $record->source,
+                                    $record->category,
                                     $record->description,
                                     $record->amount,
                                 ]);

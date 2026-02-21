@@ -21,9 +21,9 @@ class ConsumerRegistrationRequest extends FormRequest
     {
         return [
             'full_name'    => ['required', 'string', 'max:255'],
-            'email'        => ['required', 'email', 'max:255', 'unique:laravel.app_users,email'],
+            'email'        => ['required', 'email', 'max:255', 'unique:users,email'],
             'phone_number' => ['required', 'string', 'max:20'],
-            'address'      => ['required', 'string'],
+            'address'      => ['nullable', 'string'],
             'password'     => ['required', 'string', 'min:8', 'confirmed'],
         ];
     }
@@ -37,7 +37,6 @@ class ConsumerRegistrationRequest extends FormRequest
             'full_name.required'    => 'Full name is required.',
             'email.unique'          => 'This email is already registered.',
             'phone_number.required' => 'Phone number is required.',
-            'address.required'      => 'Address is required.',
             'password.confirmed'    => 'Passwords do not match.',
             'password.min'          => 'Password must be at least 8 characters.',
         ];

@@ -5,10 +5,50 @@
 @section('subheader', 'Manage your products for sale')
 
 @section('header-actions')
-<a href="{{ route('products.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">+ Add Product</a>
+@php
+    $farm_owner = Auth::user()->farmOwner;
+    $active_sub = $farm_owner ? $farm_owner->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->first() : null;
+    $current_count = $farm_owner ? $farm_owner->products()->count() : 0;
+    $can_add = $active_sub && (!$active_sub->product_limit || $current_count < $active_sub->product_limit);
+@endphp
+@if($active_sub && $can_add)
+    <a href="{{ route('products.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">+ Add Product</a>
+@elseif($active_sub && !$can_add)
+    <span class="px-4 py-2 bg-gray-600 text-gray-400 rounded-lg cursor-not-allowed" title="Product limit reached for your {{ ucfirst($active_sub->plan_type) }} plan">+ Add Product (Limit Reached)</span>
+@else
+    <a href="{{ route('farmowner.subscriptions') }}" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 animate-pulse">🔒 Subscribe to Add Products</a>
+@endif
 @endsection
 
 @section('content')
+<!-- Subscription Alert -->
+@if(!$active_sub)
+<div class="bg-yellow-900/50 border border-yellow-600 text-yellow-300 p-4 rounded-lg mb-6">
+    <div class="flex items-center gap-3">
+        <span class="text-2xl">🔒</span>
+        <div>
+            <p class="font-semibold">Subscription Required</p>
+            <p class="text-sm text-yellow-400">You need an active subscription to add products. <a href="{{ route('farmowner.subscriptions') }}" class="underline text-yellow-200 hover:text-white">View subscription plans →</a></p>
+        </div>
+    </div>
+</div>
+@elseif($active_sub->product_limit && $current_count >= $active_sub->product_limit)
+<div class="bg-red-900/50 border border-red-600 text-red-300 p-4 rounded-lg mb-6">
+    <div class="flex items-center gap-3">
+        <span class="text-2xl">⚠️</span>
+        <div>
+            <p class="font-semibold">Product Limit Reached ({{ $current_count }}/{{ $active_sub->product_limit }})</p>
+            <p class="text-sm text-red-400">Your {{ ucfirst($active_sub->plan_type) }} plan allows a maximum of {{ $active_sub->product_limit }} products. <a href="{{ route('farmowner.subscriptions') }}" class="underline text-red-200 hover:text-white">Upgrade your plan →</a></p>
+        </div>
+    </div>
+</div>
+@endif
+
+@if(session('error'))
+<div class="bg-red-900/50 border border-red-600 text-red-300 p-4 rounded-lg mb-6">
+    <p class="font-semibold">{{ session('error') }}</p>
+</div>
+@endif
 <!-- Stats -->
 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 border-l-4 border-l-blue-600">
@@ -88,7 +128,12 @@
                 @empty
                 <tr>
                     <td colspan="7" class="px-6 py-8 text-center text-gray-400">
-                        No products yet. <a href="{{ route('products.create') }}" class="text-green-400 hover:underline">Add your first product</a>
+                        No products yet. 
+                        @if($active_sub && $can_add)
+                            <a href="{{ route('products.create') }}" class="text-green-400 hover:underline">Add your first product</a>
+                        @else
+                            <a href="{{ route('farmowner.subscriptions') }}" class="text-yellow-400 hover:underline">Subscribe to add your first product</a>
+                        @endif
                     </td>
                 </tr>
                 @endforelse

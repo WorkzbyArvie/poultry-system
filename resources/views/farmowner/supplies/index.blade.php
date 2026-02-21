@@ -39,19 +39,19 @@
 <!-- Filter -->
 <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
-        <select name="category" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="category" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Categories</option>
             @foreach(['feeds', 'vitamins', 'vaccines', 'medications', 'equipment', 'supplements', 'cleaning', 'packaging', 'other'] as $cat)
             <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>{{ ucfirst($cat) }}</option>
             @endforeach
         </select>
-        <select name="status" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="status" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Status</option>
             <option value="in_stock" {{ request('status') === 'in_stock' ? 'selected' : '' }}>In Stock</option>
             <option value="low_stock" {{ request('status') === 'low_stock' ? 'selected' : '' }}>Low Stock</option>
             <option value="out_of_stock" {{ request('status') === 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
         </select>
-        <button type="submit" class="px-4 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Filter</button>
+        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Filter</button>
         <a href="{{ route('supplies.index') }}" class="px-4 py-2 text-gray-600 hover:text-white">Reset</a>
     </form>
 </div>

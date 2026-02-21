@@ -16,12 +16,12 @@
         <div>
             <label class="block text-sm text-gray-600 mb-1">Start Date</label>
             <input type="date" name="start_date" value="{{ $startDate->format('Y-m-d') }}"
-                class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+                class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
         </div>
         <div>
             <label class="block text-sm text-gray-600 mb-1">End Date</label>
             <input type="date" name="end_date" value="{{ $endDate->format('Y-m-d') }}"
-                class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+                class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
         </div>
         <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Apply</button>
     </form>

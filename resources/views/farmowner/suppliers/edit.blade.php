@@ -99,7 +99,7 @@
 
         <div class="flex gap-3">
             <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update Supplier</button>
-            <a href="{{ route('suppliers.show', $supplier) }}" class="px-6 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Cancel</a>
+            <a href="{{ route('suppliers.show', $supplier) }}" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Cancel</a>
         </div>
     </form>
 </div>

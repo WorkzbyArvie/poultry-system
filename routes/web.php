@@ -57,6 +57,9 @@ Route::get('/consumer/register', function () {
 Route::post('/client/register', [ClientRequestController::class, 'store'])->name('client.request.store');
 Route::post('/consumer/register', [ConsumerRegistrationController::class, 'store'])->name('consumer.store');
 
+// PayMongo Webhook (no auth, no CSRF)
+Route::post('/webhooks/paymongo', [SubscriptionController::class, 'handleWebhook'])->name('webhooks.paymongo');
+
 /*
 |--------------------------------------------------------------------------
 | 2. Authenticated Routes
@@ -85,6 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('role:superadmin')->group(function () {
         Route::get('/super-admin/dashboard', [SuperAdminController::class, 'index'])->name('superadmin.dashboard');
         Route::get('/super-admin/farm-owners', [SuperAdminController::class, 'farm_owners'])->name('superadmin.farm_owners');
+        Route::get('/super-admin/farm-owners/{id}', [SuperAdminController::class, 'show_farm_owner'])->name('superadmin.show_farm_owner');
         Route::post('/super-admin/farm-owners/{id}/approve', [SuperAdminController::class, 'approve_farm_owner'])->name('superadmin.approve_farm_owner');
         Route::post('/super-admin/farm-owners/{id}/reject', [SuperAdminController::class, 'reject_farm_owner'])->name('superadmin.reject_farm_owner');
         Route::get('/super-admin/orders', [SuperAdminController::class, 'orders'])->name('superadmin.orders');
@@ -176,6 +180,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/farm-owner/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::put('/farm-owner/products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('/farm-owner/products/{product}', [ProductController::class, 'delete'])->name('products.delete');
+    Route::patch('/farm-owner/products/{product}/stock', [ProductController::class, 'update_stock'])->name('products.update-stock');
 
     // --- Order Routes ---
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -206,14 +211,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         return view('client.dashboard', compact('daysRemaining'));
     })->name('client.dashboard');
-
-    // Logout Route (within auth group for CSRF protection)
-    Route::post('/logout', function (\Illuminate\Http\Request $request) {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        return redirect('/login');
-    })->name('logout');
 });
 
 require __DIR__.'/auth.php';

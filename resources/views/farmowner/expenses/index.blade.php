@@ -34,21 +34,21 @@
 <!-- Filter -->
 <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
-        <select name="category" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="category" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Categories</option>
             @foreach(['feeds', 'medications', 'utilities', 'equipment', 'labor', 'maintenance', 'transportation', 'packaging', 'miscellaneous'] as $cat)
             <option value="{{ $cat }}" {{ request('category') === $cat ? 'selected' : '' }}>{{ ucfirst($cat) }}</option>
             @endforeach
         </select>
-        <select name="payment_status" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="payment_status" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Status</option>
             <option value="paid" {{ request('payment_status') === 'paid' ? 'selected' : '' }}>Paid</option>
             <option value="unpaid" {{ request('payment_status') === 'unpaid' ? 'selected' : '' }}>Unpaid</option>
             <option value="partial" {{ request('payment_status') === 'partial' ? 'selected' : '' }}>Partial</option>
         </select>
         <input type="month" name="month" value="{{ request('month') }}"
-            class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
-        <button type="submit" class="px-4 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Filter</button>
+            class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Filter</button>
     </form>
 </div>
 

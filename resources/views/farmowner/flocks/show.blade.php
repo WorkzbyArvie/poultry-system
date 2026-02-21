@@ -7,7 +7,7 @@
 @section('header-actions')
 <div class="flex gap-2">
     <a href="{{ route('flocks.edit', $flock) }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Edit</a>
-    <a href="{{ route('flocks.index') }}" class="px-4 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Back</a>
+    <a href="{{ route('flocks.index') }}" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Back</a>
 </div>
 @endsection
 

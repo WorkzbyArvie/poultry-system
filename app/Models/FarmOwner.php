@@ -13,9 +13,9 @@ class FarmOwner extends Model
 
     protected $fillable = [
         'user_id', 'farm_name', 'farm_address', 'city', 'province', 'postal_code',
-        'latitude', 'longitude', 'business_registration_number', 'permit_status',
-        'permit_expiry_date', 'subscription_status', 'monthly_revenue', 'total_products',
-        'total_orders', 'average_rating'
+        'latitude', 'longitude', 'business_registration_number', 'valid_id_path',
+        'permit_status', 'permit_expiry_date', 'subscription_status', 'monthly_revenue',
+        'total_products', 'total_orders', 'average_rating'
     ];
 
     protected $casts = [

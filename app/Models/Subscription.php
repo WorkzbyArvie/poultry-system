@@ -67,7 +67,7 @@ class Subscription extends Model
     public function getDaysRemainingAttribute(): ?int
     {
         if (!$this->ends_at) return null;
-        return max(0, $this->ends_at->diffInDays(now(), false));
+        return max(0, (int)now()->diffInDays($this->ends_at, false));
     }
 
     /**
@@ -79,6 +79,33 @@ class Subscription extends Model
     }
 
     /**
+     * Get plan limits configuration.
+     */
+    public static function getPlanLimits(): array
+    {
+        return [
+            'starter' => [
+                'monthly_cost' => 30,
+                'product_limit' => 2,
+                'order_limit' => 50,
+                'commission_rate' => 5.00,
+            ],
+            'professional' => [
+                'monthly_cost' => 500,
+                'product_limit' => 10,
+                'order_limit' => 200,
+                'commission_rate' => 3.00,
+            ],
+            'enterprise' => [
+                'monthly_cost' => 1200,
+                'product_limit' => null, // unlimited
+                'order_limit' => null,   // unlimited
+                'commission_rate' => 1.50,
+            ],
+        ];
+    }
+
+    /**
      * Get days remaining on subscription.
      */
     public function daysRemaining(): int
@@ -86,6 +113,6 @@ class Subscription extends Model
         if (!$this->isActive()) {
             return 0;
         }
-        return max(0, (int)now()->diffInDays($this->expires_at, false));
+        return max(0, (int)now()->diffInDays($this->ends_at, false));
     }
 }

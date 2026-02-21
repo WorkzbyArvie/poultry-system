@@ -125,7 +125,7 @@
 
         <div class="flex gap-4 pt-4">
             <button type="submit" class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Add Employee</button>
-            <a href="{{ route('employees.index') }}" class="px-6 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Cancel</a>
+            <a href="{{ route('employees.index') }}" class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Cancel</a>
         </div>
     </form>
 </div>

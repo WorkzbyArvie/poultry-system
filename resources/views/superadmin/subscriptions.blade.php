@@ -69,8 +69,8 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-gray-400">{{ $sub->started_at?->format('M d, Y') }}</td>
-                                <td class="px-6 py-4 text-gray-400">{{ $sub->expires_at?->format('M d, Y') }}</td>
-                                <td class="px-6 py-4 font-mono text-xs">{{ $sub->payment_reference ?? '-' }}</td>
+                                <td class="px-6 py-4 text-gray-400">{{ $sub->ends_at?->format('M d, Y') }}</td>
+                                <td class="px-6 py-4 font-mono text-xs">{{ $sub->paymongo_subscription_id ?? '-' }}</td>
                                 <td class="px-6 py-4 text-center">
                                     <a href="#" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">Details</a>
                                 </td>

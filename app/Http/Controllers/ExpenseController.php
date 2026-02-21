@@ -75,17 +75,13 @@ class ExpenseController extends Controller
             'supplier_id' => 'nullable|exists:suppliers,id',
             'category' => 'required|in:feeds,medications,utilities,equipment,labor,maintenance,transportation,packaging,miscellaneous',
             'description' => 'required|string|max:255',
-            'quantity' => 'nullable|numeric|min:0',
-            'unit' => 'nullable|string|max:50',
-            'unit_cost' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0',
             'total_amount' => 'required|numeric|min:0',
             'expense_date' => 'required|date',
-            'invoice_number' => 'nullable|string|max:100',
-            'receipt_number' => 'nullable|string|max:100',
             'payment_method' => 'nullable|in:cash,bank_transfer,check,credit,gcash',
             'payment_status' => 'required|in:paid,unpaid,partial',
-            'amount_paid' => 'nullable|numeric|min:0',
             'due_date' => 'nullable|date',
+            'reference_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
 
@@ -127,14 +123,11 @@ class ExpenseController extends Controller
             'supplier_id' => 'nullable|exists:suppliers,id',
             'category' => 'required|in:feeds,medications,utilities,equipment,labor,maintenance,transportation,packaging,miscellaneous',
             'description' => 'required|string|max:255',
-            'quantity' => 'nullable|numeric|min:0',
-            'unit' => 'nullable|string|max:50',
-            'unit_cost' => 'nullable|numeric|min:0',
+            'amount' => 'nullable|numeric|min:0',
             'total_amount' => 'required|numeric|min:0',
             'expense_date' => 'required|date',
-            'invoice_number' => 'nullable|string|max:100',
             'payment_status' => 'required|in:paid,unpaid,partial',
-            'amount_paid' => 'nullable|numeric|min:0',
+            'reference_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
 
@@ -165,12 +158,10 @@ class ExpenseController extends Controller
             'payment_reference' => 'nullable|string|max:100',
         ]);
 
-        $expense->update([
-            'payment_status' => 'paid',
-            'payment_method' => $validated['payment_method'],
-            'amount_paid' => $expense->total_amount,
-            'payment_date' => now(),
-        ]);
+        $expense->markPaid(
+            $validated['payment_method'],
+            $validated['payment_reference'] ?? null
+        );
 
         Cache::forget("farm_{$farmOwner->id}_expense_stats");
 

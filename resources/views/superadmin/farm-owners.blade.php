@@ -43,6 +43,7 @@
                             <tr>
                                 <th class="text-left px-6 py-3">Farm Name</th>
                                 <th class="text-left px-6 py-3">Owner</th>
+                                <th class="text-left px-6 py-3">Valid ID</th>
                                 <th class="text-left px-6 py-3">Status</th>
                                 <th class="text-left px-6 py-3">Products</th>
                                 <th class="text-left px-6 py-3">Orders</th>
@@ -54,6 +55,13 @@
                             <tr class="hover:bg-gray-700 transition">
                                 <td class="px-6 py-4 font-semibold">{{ $owner->farm_name ?? 'N/A' }}</td>
                                 <td class="px-6 py-4">{{ $owner->user?->name ?? 'Unknown' }}</td>
+                                <td class="px-6 py-4">
+                                    @if($owner->valid_id_path)
+                                    <a href="{{ asset('storage/' . $owner->valid_id_path) }}" target="_blank" class="text-blue-400 hover:text-blue-300 underline text-xs">View ID</a>
+                                    @else
+                                    <span class="text-gray-500 text-xs">No ID</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4">
                                     <span class="px-3 py-1 rounded-full text-xs font-semibold
                                         @if($owner->permit_status === 'approved') bg-green-500/20 text-green-400
@@ -72,7 +80,7 @@
                                         <button type="submit" class="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-xs">Approve</button>
                                     </form>
                                     @endif
-                                    <a href="#" class="px-3 py-1 bg-gray-600 hover:bg-gray-700 rounded text-xs">View</a>
+                                    <a href="{{ route('superadmin.show_farm_owner', $owner->id) }}" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs">View</a>
                                 </td>
                             </tr>
                             @endforeach

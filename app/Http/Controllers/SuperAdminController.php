@@ -6,10 +6,12 @@ use App\Models\User;
 use App\Models\FarmOwner;
 use App\Models\Order;
 use App\Models\Subscription;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class SuperAdminController extends Controller
 {
@@ -55,12 +57,28 @@ class SuperAdminController extends Controller
     public function farm_owners()
     {
         $farm_owners = FarmOwner::with('user:id,name,email')
-            ->select('id', 'user_id', 'farm_name', 'permit_status', 'created_at')
+            ->select('id', 'user_id', 'farm_name', 'permit_status', 'valid_id_path', 'created_at')
             ->withCount('products', 'orders')
             ->latest('created_at')
             ->paginate(20);
 
         return view('superadmin.farm-owners', compact('farm_owners'));
+    }
+
+    public function show_farm_owner($id)
+    {
+        $farm_owner = FarmOwner::with(['user:id,name,email', 'products'])
+            ->withCount('products', 'orders')
+            ->findOrFail($id);
+
+        $products = $farm_owner->products()
+            ->select('id', 'farm_owner_id', 'name', 'sku', 'category', 'price', 'quantity_available', 'quantity_sold', 'status')
+            ->orderBy('quantity_available', 'asc')
+            ->get();
+
+        $total_sales = $farm_owner->orders()->where('payment_status', 'paid')->sum('total_amount');
+
+        return view('superadmin.farm-owner-show', compact('farm_owner', 'products', 'total_sales'));
     }
 
     public function approve_farm_owner($id)
@@ -109,7 +127,14 @@ class SuperAdminController extends Controller
             ];
         });
 
-        return view('superadmin.orders', compact('orders', 'stats'));
+        // Sales per farm owner
+        $sales_per_farm = Order::select('farm_owner_id', DB::raw('COUNT(*) as order_count'), DB::raw('SUM(total_amount) as total_sales'), DB::raw('SUM(CASE WHEN payment_status = \'paid\' THEN total_amount ELSE 0 END) as paid_sales'))
+            ->with('farmOwner:id,farm_name')
+            ->groupBy('farm_owner_id')
+            ->orderByDesc('total_sales')
+            ->get();
+
+        return view('superadmin.orders', compact('orders', 'stats', 'sales_per_farm'));
     }
 
     public function subscriptions()

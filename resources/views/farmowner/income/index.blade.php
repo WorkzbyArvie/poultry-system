@@ -30,15 +30,15 @@
 <!-- Filter -->
 <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
-        <select name="source" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="source" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Sources</option>
             @foreach(['egg_sales', 'chicken_sales', 'manure_sales', 'chick_sales', 'feed_sales', 'other'] as $src)
             <option value="{{ $src }}" {{ request('source') === $src ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $src)) }}</option>
             @endforeach
         </select>
         <input type="month" name="month" value="{{ request('month') }}"
-            class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
-        <button type="submit" class="px-4 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Filter</button>
+            class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Filter</button>
     </form>
 </div>
 

@@ -27,7 +27,7 @@ class OrderController extends Controller
         }
 
         $orders = Order::where('consumer_id', $user->id)
-            ->with(['farmOwner.user', 'items'])
+            ->with(['farmOwner.user', 'items.product'])
             ->latest('created_at')
             ->paginate(20);
 
@@ -118,17 +118,37 @@ class OrderController extends Controller
             DB::transaction(function () use ($user, $cart, $validated) {
                 $farm_owner_id = null;
                 
-                foreach ($cart as $item) {
-                    if ($farm_owner_id === null) {
-                        $farm_owner_id = $item['farm_owner_id'];
+                // Re-verify prices from database to prevent manipulation
+                $productIds = collect($cart)->pluck('product_id');
+                $products = Product::whereIn('id', $productIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($cart as $key => $item) {
+                    $product = $products->get($item['product_id']);
+                    
+                    if (!$product) {
+                        throw new \Exception("Product '{$item['name']}' is no longer available.");
                     }
 
-                    if ($item['farm_owner_id'] !== $farm_owner_id) {
+                    if ($product->quantity_available < $item['quantity']) {
+                        throw new \Exception("Insufficient stock for '{$product->name}'. Available: {$product->quantity_available}");
+                    }
+
+                    if ($farm_owner_id === null) {
+                        $farm_owner_id = $product->farm_owner_id;
+                    }
+
+                    if ($product->farm_owner_id !== $farm_owner_id) {
                         throw new \Exception('All products must be from the same farm owner');
                     }
+
+                    // Use verified price from DB
+                    $cart[$key]['verified_price'] = $product->price;
                 }
 
-                $subtotal = collect($cart)->sum(fn($item) => $item['price'] * $item['quantity']);
+                $subtotal = collect($cart)->sum(fn($item) => $item['verified_price'] * $item['quantity']);
                 $tax = $subtotal * 0.12;
                 $total_amount = $subtotal + ($validated['delivery_type'] === 'delivery' ? 100 : 0) + $tax;
 
@@ -152,14 +172,20 @@ class OrderController extends Controller
                 ]);
 
                 foreach ($cart as $item) {
+                    $product = $products->get($item['product_id']);
+
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $item['product_id'],
                         'quantity' => $item['quantity'],
-                        'unit_price' => $item['price'],
-                        'total_price' => $item['price'] * $item['quantity'],
-                        'product_snapshot' => json_encode(['name' => $item['name']]),
+                        'unit_price' => $item['verified_price'],
+                        'total_price' => $item['verified_price'] * $item['quantity'],
+                        'product_attributes' => json_encode(['name' => $product->name]),
                     ]);
+
+                    // Decrement stock
+                    $product->decrement('quantity_available', $item['quantity']);
+                    $product->increment('quantity_sold', $item['quantity']);
                 }
 
                 Log::info('Order created', ['order_id' => $order->id, 'consumer_id' => $user->id, 'total' => $total_amount]);

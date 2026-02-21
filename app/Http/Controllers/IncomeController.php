@@ -23,10 +23,10 @@ class IncomeController extends Controller
         
         $query = IncomeRecord::byFarmOwner($farmOwner->id)
             ->with('recordedBy:id,name')
-            ->select('id', 'income_number', 'order_id', 'source', 'description', 'amount', 'income_date', 'payment_method', 'recorded_by');
+            ->select('id', 'income_number', 'order_id', 'category', 'description', 'amount', 'income_date', 'payment_method', 'recorded_by');
 
-        if ($request->filled('source')) {
-            $query->bySource($request->source);
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
         }
 
         if ($request->filled('month')) {
@@ -43,11 +43,11 @@ class IncomeController extends Controller
                     ->whereMonth('income_date', now()->month)
                     ->whereYear('income_date', now()->year)
                     ->sum('amount'),
-                'by_source' => IncomeRecord::byFarmOwner($farmOwner->id)
+                'by_category' => IncomeRecord::byFarmOwner($farmOwner->id)
                     ->whereMonth('income_date', now()->month)
-                    ->selectRaw('source, SUM(amount) as total')
-                    ->groupBy('source')
-                    ->pluck('total', 'source'),
+                    ->selectRaw('category, SUM(amount) as total')
+                    ->groupBy('category')
+                    ->pluck('total', 'category'),
             ];
         });
 
@@ -65,11 +65,8 @@ class IncomeController extends Controller
 
         $validated = $request->validate([
             'order_id' => 'nullable|exists:orders,id',
-            'source' => 'required|in:egg_sales,chicken_sales,manure_sales,chick_sales,feed_sales,other',
+            'category' => 'required|in:egg_sales,chicken_sales,manure_sales,chick_sales,feed_sales,other',
             'description' => 'required|string|max:255',
-            'quantity' => 'nullable|numeric|min:0',
-            'unit' => 'nullable|string|max:50',
-            'unit_price' => 'nullable|numeric|min:0',
             'amount' => 'required|numeric|min:0',
             'income_date' => 'required|date',
             'payment_method' => 'nullable|in:cash,bank_transfer,check,gcash,credit',
@@ -112,11 +109,8 @@ class IncomeController extends Controller
         abort_if($income->farm_owner_id !== $farmOwner->id, 403);
 
         $validated = $request->validate([
-            'source' => 'required|in:egg_sales,chicken_sales,manure_sales,chick_sales,feed_sales,other',
+            'category' => 'required|in:egg_sales,chicken_sales,manure_sales,chick_sales,feed_sales,other',
             'description' => 'required|string|max:255',
-            'quantity' => 'nullable|numeric|min:0',
-            'unit' => 'nullable|string|max:50',
-            'unit_price' => 'nullable|numeric|min:0',
             'amount' => 'required|numeric|min:0',
             'income_date' => 'required|date',
             'payment_method' => 'nullable|in:cash,bank_transfer,check,gcash,credit',

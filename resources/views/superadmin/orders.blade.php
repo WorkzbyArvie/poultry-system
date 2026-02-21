@@ -56,6 +56,36 @@
                     </div>
                 </div>
 
+                <!-- Sales Report Per Farm Owner -->
+                @if(isset($sales_per_farm) && $sales_per_farm->count() > 0)
+                <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-8">
+                    <div class="px-6 py-4 border-b border-gray-700">
+                        <h3 class="text-lg font-bold">Sales Report Per Farm Owner</h3>
+                        <p class="text-gray-400 text-sm">Revenue breakdown by farm</p>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-700 border-b border-gray-600">
+                            <tr>
+                                <th class="text-left px-6 py-3">Farm Name</th>
+                                <th class="text-left px-6 py-3">Total Orders</th>
+                                <th class="text-left px-6 py-3">Total Sales</th>
+                                <th class="text-left px-6 py-3">Paid Sales</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-700">
+                            @foreach($sales_per_farm as $farm_sale)
+                            <tr class="hover:bg-gray-700 transition">
+                                <td class="px-6 py-4 font-semibold">{{ $farm_sale->farmOwner?->farm_name ?? 'Unknown' }}</td>
+                                <td class="px-6 py-4">{{ $farm_sale->order_count }}</td>
+                                <td class="px-6 py-4 font-semibold">₱{{ number_format($farm_sale->total_sales ?? 0, 2) }}</td>
+                                <td class="px-6 py-4 font-semibold text-green-400">₱{{ number_format($farm_sale->paid_sales ?? 0, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @endif
+
                 @if($orders->count() > 0)
                 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
                     <table class="w-full text-sm">

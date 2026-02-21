@@ -14,6 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserRole::class,
         ]);
+
+        // Exclude PayMongo webhook from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/paymongo',
+        ]);
         
         // Add global optimization middleware
         $middleware->use([

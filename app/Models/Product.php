@@ -39,10 +39,11 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function reviews()
-    {
-        return $this->morphMany(Review::class, 'reviewable');
-    }
+    // Reviews relationship (uncomment when Review model is implemented)
+    // public function reviews()
+    // {
+    //     return $this->morphMany(Review::class, 'reviewable');
+    // }
 
     // Query Scopes - Performance Optimized
     public function scopeActive(Builder $query)

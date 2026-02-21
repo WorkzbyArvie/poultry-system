@@ -63,7 +63,11 @@ class FarmOwnerAuthController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'business_registration_number' => 'required|string|unique:farm_owners',
+            'valid_id' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
+
+        // Upload valid ID
+        $valid_id_path = $request->file('valid_id')->store('valid_ids', 'public');
 
         // Create user
         $user = User::create([
@@ -87,6 +91,7 @@ class FarmOwnerAuthController extends Controller
             'latitude' => $validated['latitude'],
             'longitude' => $validated['longitude'],
             'business_registration_number' => $validated['business_registration_number'],
+            'valid_id_path' => $valid_id_path,
             'permit_status' => 'pending',
         ]);
 

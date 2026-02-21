@@ -28,19 +28,19 @@
 <!-- Filter -->
 <div class="bg-gray-800 border border-gray-700 rounded-lg p-4 mb-6">
     <form method="GET" class="flex flex-wrap gap-4">
-        <select name="department" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="department" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Departments</option>
             @foreach(['farm_operations', 'hr', 'finance', 'logistics', 'sales', 'admin'] as $dept)
             <option value="{{ $dept }}" {{ request('department') === $dept ? 'selected' : '' }}>{{ ucfirst(str_replace('_', ' ', $dept)) }}</option>
             @endforeach
         </select>
-        <select name="status" class="px-3 py-2 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
+        <select name="status" class="px-3 py-2 bg-gray-700 text-white border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500">
             <option value="">All Status</option>
             <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
             <option value="on_leave" {{ request('status') === 'on_leave' ? 'selected' : '' }}>On Leave</option>
             <option value="terminated" {{ request('status') === 'terminated' ? 'selected' : '' }}>Terminated</option>
         </select>
-        <button type="submit" class="px-4 py-2 bg-gray-200 text-gray-200 rounded-lg hover:bg-gray-300">Filter</button>
+        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Filter</button>
     </form>
 </div>
 

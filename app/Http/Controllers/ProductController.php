@@ -34,6 +34,26 @@ class ProductController extends Controller
     public function create()
     {
         $this->authorize_farm_owner();
+
+        $user = Auth::user();
+        $farm_owner = $user->farmOwner;
+
+        // Check for active subscription
+        $active_sub = $farm_owner->subscriptions()->active()->first();
+        if (!$active_sub) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to add products. Please subscribe to a plan first.');
+        }
+
+        // Check product limit
+        if ($active_sub->product_limit) {
+            $current_count = $farm_owner->products()->count();
+            if ($current_count >= $active_sub->product_limit) {
+                return redirect()->route('products.index')
+                    ->with('error', "You've reached the maximum of {$active_sub->product_limit} products for your " . ucfirst($active_sub->plan_type) . " plan. Please upgrade your subscription to add more products.");
+            }
+        }
+
         return view('farmowner.products.create');
     }
 
@@ -43,6 +63,22 @@ class ProductController extends Controller
 
         $user = Auth::user();
         $farm_owner = $user->farmOwner;
+
+        // Check for active subscription
+        $active_sub = $farm_owner->subscriptions()->active()->first();
+        if (!$active_sub) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to add products. Please subscribe to a plan first.');
+        }
+
+        // Check product limit
+        if ($active_sub->product_limit) {
+            $current_count = $farm_owner->products()->count();
+            if ($current_count >= $active_sub->product_limit) {
+                return redirect()->route('products.index')
+                    ->with('error', "You've reached the maximum of {$active_sub->product_limit} products for your " . ucfirst($active_sub->plan_type) . " plan. Please upgrade your subscription to add more products.");
+            }
+        }
 
         $validated = $request->validate([
             'sku' => 'required|string|unique:products|max:100',
@@ -125,6 +161,43 @@ class ProductController extends Controller
         $product->delete();
 
         return redirect()->route('products.index')->with('success', 'Product deleted');
+    }
+
+    public function update_stock(Request $request, Product $product)
+    {
+        $this->authorize_farm_owner();
+
+        if ($product->farm_owner_id !== Auth::user()->farmOwner->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1',
+            'action' => 'required|in:add,subtract',
+        ]);
+
+        $quantity = (int) $validated['quantity'];
+
+        if ($validated['action'] === 'add') {
+            $product->increment('quantity_available', $quantity);
+            $message = "Added {$quantity} units to stock. New stock: {$product->fresh()->quantity_available}";
+        } else {
+            if ($product->quantity_available < $quantity) {
+                return redirect()->back()->with('error', "Cannot subtract {$quantity} units. Current stock is only {$product->quantity_available}.");
+            }
+            $product->decrement('quantity_available', $quantity);
+            $message = "Subtracted {$quantity} units from stock. New stock: {$product->fresh()->quantity_available}";
+        }
+
+        Log::info('Stock updated', [
+            'product_id' => $product->id,
+            'action' => $validated['action'],
+            'quantity' => $quantity,
+            'new_stock' => $product->fresh()->quantity_available,
+            'farm_owner_id' => Auth::user()->farmOwner->id,
+        ]);
+
+        return redirect()->back()->with('success', $message);
     }
 
     private function authorize_farm_owner()

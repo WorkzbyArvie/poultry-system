@@ -25,7 +25,7 @@
             </div>
             @endif
 
-            <form method="POST" action="{{ route('farmowner.register.store') }}" class="space-y-6">
+            <form method="POST" action="{{ route('farmowner.register.store') }}" enctype="multipart/form-data" class="space-y-6">
                 @csrf
 
                 <!-- Owner Information -->
@@ -75,6 +75,12 @@
                             <input type="text" name="business_registration_number" value="{{ old('business_registration_number') }}" required
                                    class="w-full px-4 py-2 bg-gray-600 text-white border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500">
                             <p class="text-xs text-gray-400 mt-1">Your farm's official registration number</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-300 mb-2">Valid ID Picture *</label>
+                            <input type="file" name="valid_id" accept="image/*" required
+                                   class="w-full px-4 py-2 bg-gray-600 text-white border border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-orange-600 file:text-white file:cursor-pointer">
+                            <p class="text-xs text-gray-400 mt-1">Upload a clear photo of your valid government ID (JPG, PNG, max 5MB)</p>
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-300 mb-2">Farm Address *</label>

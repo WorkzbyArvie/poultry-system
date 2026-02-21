@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Providers\RouteServiceProvider;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,8 +31,8 @@ class RedirectIfAuthenticated
                     return redirect('/client/dashboard');
                 }
 
-                // Default fallback from Laravel Breeze
-                return redirect(RouteServiceProvider::HOME);
+                // Default fallback
+                return redirect('/dashboard');
             }
         }
 

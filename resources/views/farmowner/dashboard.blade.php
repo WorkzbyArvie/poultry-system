@@ -1,50 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farm Dashboard - Poultry System</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-</head>
-<body class="bg-gray-900">
-    <div class="flex h-screen">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-gray-800 text-white shadow-lg border-r border-gray-700">
-            <div class="p-6 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-orange-500">Farm Portal</h1>
-                <p class="text-gray-400 text-sm mt-1">{{ $farm_owner?->farm_name ?? 'Farm' }}</p>
-            </div>
-            
-            <nav class="p-4 space-y-2">
-                <a href="{{ route('farmowner.dashboard') }}" class="block px-4 py-3 bg-orange-600 text-white rounded-lg">Dashboard</a>
-                <a href="{{ route('products.index') }}" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg">Products</a>
-                <a href="{{ route('orders.index') }}" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg">Orders</a>
-                <a href="{{ route('farmowner.subscriptions') }}" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg">Subscription</a>
-                <a href="{{ route('farmowner.profile') }}" class="block px-4 py-3 text-gray-300 hover:bg-gray-700 rounded-lg">Profile</a>
-                <hr class="my-4 border-gray-700">
-                <form method="POST" action="{{ route('farmowner.logout') }}">
-                    @csrf
-                    <button type="submit" class="w-full px-4 py-3 text-left text-gray-300 hover:bg-red-600 rounded-lg">Logout</button>
-                </form>
-            </nav>
-        </aside>
+@extends('farmowner.layouts.app')
 
-        <!-- Main Content -->
-        <main class="flex-1 overflow-auto">
-            <header class="bg-gray-800 border-b border-gray-700">
-                <div class="px-8 py-4">
-                    <h2 class="text-2xl font-bold text-white">Dashboard</h2>
-                    <p class="text-gray-400 text-sm">Welcome back, {{ Auth::user()->name }}</p>
-                </div>
-            </header>
+@section('title', 'Dashboard')
+@section('header', 'Dashboard')
+@section('subheader', 'Welcome back, ' . Auth::user()->name)
 
-            <div class="p-8">
-                @if(session('success'))
-                <div class="mb-6 p-4 bg-green-900/30 border border-green-200 rounded-lg text-green-400">
-                    {{ session('success') }}
-                </div>
-                @endif
-
+@section('content')
                 <!-- Status Alert -->
                 @if($stats['permit_status'] === 'pending')
                 <div class="mb-6 p-4 bg-yellow-900/30 border border-yellow-700 rounded-lg">
@@ -147,8 +107,4 @@
                         @endif
                     </div>
                 </div>
-            </div>
-        </main>
-    </div>
-</body>
-</html>
+@endsection

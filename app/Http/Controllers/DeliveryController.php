@@ -24,7 +24,7 @@ class DeliveryController extends Controller
         
         $query = Delivery::byFarmOwner($farmOwner->id)
             ->with(['order:id,order_number', 'driver:id,name,phone'])
-            ->select('id', 'delivery_number', 'order_id', 'driver_id', 'customer_name', 'delivery_address', 'scheduled_date', 'status', 'cod_amount', 'cod_collected');
+            ->select('id', 'tracking_number', 'order_id', 'driver_id', 'recipient_name', 'delivery_address', 'scheduled_date', 'status', 'cod_amount', 'cod_collected');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -36,16 +36,18 @@ class DeliveryController extends Controller
 
         $deliveries = $query->latest('scheduled_date')->paginate(20);
 
+        // Single query for COD pending
+        $codPending = Delivery::byFarmOwner($farmOwner->id)
+            ->where('cod_collected', false)
+            ->where('cod_amount', '>', 0)
+            ->sum('cod_amount');
+
         $stats = [
             'pending' => Delivery::byFarmOwner($farmOwner->id)->byStatus('pending')->count(),
             'dispatched' => Delivery::byFarmOwner($farmOwner->id)->byStatus('dispatched')->count(),
             'delivered_today' => Delivery::byFarmOwner($farmOwner->id)->byStatus('delivered')
                 ->whereDate('delivered_at', today())->count(),
-            'cod_pending' => Delivery::byFarmOwner($farmOwner->id)
-                ->whereColumn('cod_amount', '>', 'cod_collected')
-                ->sum('cod_amount') - Delivery::byFarmOwner($farmOwner->id)
-                ->whereColumn('cod_amount', '>', 'cod_collected')
-                ->sum('cod_collected'),
+            'cod_pending' => $codPending,
         ];
 
         return view('farmowner.deliveries.index', compact('deliveries', 'stats'));
@@ -59,7 +61,7 @@ class DeliveryController extends Controller
         $orders = Order::where('farm_owner_id', $farmOwner->id)
             ->whereDoesntHave('delivery')
             ->where('status', 'confirmed')
-            ->select('id', 'order_number', 'customer_name')
+            ->select('id', 'order_number')
             ->get();
 
         return view('farmowner.deliveries.create', compact('drivers', 'orders'));
@@ -72,33 +74,29 @@ class DeliveryController extends Controller
         $validated = $request->validate([
             'order_id' => 'nullable|exists:orders,id',
             'driver_id' => 'nullable|exists:drivers,id',
-            'customer_name' => 'required|string|max:255',
-            'customer_phone' => 'required|string|max:20',
+            'recipient_name' => 'required|string|max:255',
+            'recipient_phone' => 'required|string|max:20',
             'delivery_address' => 'required|string',
-            'barangay' => 'nullable|string|max:100',
             'city' => 'nullable|string|max:100',
+            'province' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
             'scheduled_date' => 'required|date',
-            'scheduled_time' => 'nullable|string|max:50',
-            'total_weight_kg' => 'nullable|numeric|min:0',
-            'number_of_items' => 'nullable|integer|min:0',
+            'scheduled_time_from' => 'nullable|date_format:H:i',
+            'scheduled_time_to' => 'nullable|date_format:H:i',
             'delivery_fee' => 'nullable|numeric|min:0',
             'cod_amount' => 'nullable|numeric|min:0',
             'special_instructions' => 'nullable|string',
-            'notes' => 'nullable|string',
+            'delivery_notes' => 'nullable|string',
         ]);
 
         $validated['farm_owner_id'] = $farmOwner->id;
-        $validated['created_by'] = Auth::id();
-
-        // Generate delivery number
-        $count = Delivery::byFarmOwner($farmOwner->id)->whereYear('created_at', now()->year)->count() + 1;
-        $validated['delivery_number'] = 'DEL-' . now()->format('Ymd') . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $validated['assigned_by'] = Auth::id();
 
         $delivery = Delivery::create($validated);
 
         // If driver assigned, auto-assign
         if ($delivery->driver_id) {
-            $delivery->assignDriver($delivery->driver_id);
+            $delivery->assignDriver($delivery->driver_id, Auth::id());
         }
 
         return redirect()->route('deliveries.index')->with('success', 'Delivery created.');
@@ -109,7 +107,7 @@ class DeliveryController extends Controller
         $farmOwner = $this->getFarmOwner();
         abort_if($delivery->farm_owner_id !== $farmOwner->id, 403);
 
-        $delivery->load(['order', 'driver', 'createdBy']);
+        $delivery->load(['order', 'driver', 'assignedBy']);
 
         return view('farmowner.deliveries.show', compact('delivery'));
     }
@@ -132,13 +130,14 @@ class DeliveryController extends Controller
 
         $validated = $request->validate([
             'driver_id' => 'nullable|exists:drivers,id',
-            'customer_phone' => 'required|string|max:20',
+            'recipient_phone' => 'required|string|max:20',
             'delivery_address' => 'required|string',
             'scheduled_date' => 'required|date',
-            'scheduled_time' => 'nullable|string|max:50',
+            'scheduled_time_from' => 'nullable|date_format:H:i',
+            'scheduled_time_to' => 'nullable|date_format:H:i',
             'delivery_fee' => 'nullable|numeric|min:0',
             'special_instructions' => 'nullable|string',
-            'notes' => 'nullable|string',
+            'delivery_notes' => 'nullable|string',
         ]);
 
         $delivery->update($validated);
@@ -155,7 +154,7 @@ class DeliveryController extends Controller
             'driver_id' => 'required|exists:drivers,id',
         ]);
 
-        $delivery->assignDriver($validated['driver_id']);
+        $delivery->assignDriver($validated['driver_id'], Auth::id());
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Driver assigned.');
     }
@@ -177,19 +176,16 @@ class DeliveryController extends Controller
         abort_if($delivery->farm_owner_id !== $farmOwner->id, 403);
 
         $validated = $request->validate([
-            'cod_collected' => 'nullable|numeric|min:0',
+            'cod_collected' => 'nullable|boolean',
             'proof_of_delivery' => 'nullable|string|max:255',
-            'receiver_name' => 'nullable|string|max:255',
             'delivery_notes' => 'nullable|string',
         ]);
 
-        $delivery->markDelivered(
-            $validated['cod_collected'] ?? 0,
-            $validated['proof_of_delivery'] ?? null
-        );
+        $delivery->markDelivered($validated['proof_of_delivery'] ?? null);
 
-        if (isset($validated['receiver_name'])) {
-            $delivery->update(['receiver_name' => $validated['receiver_name']]);
+        // Update COD collection status if applicable
+        if (isset($validated['cod_collected'])) {
+            $delivery->update(['cod_collected' => $validated['cod_collected']]);
         }
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Delivery completed.');
@@ -214,15 +210,15 @@ class DeliveryController extends Controller
         $farmOwner = $this->getFarmOwner();
 
         $today = Delivery::byFarmOwner($farmOwner->id)
-            ->scheduledFor(today())
+            ->scheduledToday()
             ->with('driver:id,name')
-            ->orderBy('scheduled_time')
+            ->orderBy('scheduled_time_from')
             ->get();
 
         $tomorrow = Delivery::byFarmOwner($farmOwner->id)
-            ->scheduledFor(today()->addDay())
+            ->whereDate('scheduled_date', today()->addDay())
             ->with('driver:id,name')
-            ->orderBy('scheduled_time')
+            ->orderBy('scheduled_time_from')
             ->get();
 
         $unscheduled = Delivery::byFarmOwner($farmOwner->id)

@@ -9,9 +9,30 @@
             </div>
 
             <h1 class="text-3xl font-black text-white uppercase tracking-tighter mb-4">Payment Received!</h1>
-            <p class="text-gray-400 mb-8 leading-relaxed">
+            <p class="text-gray-400 mb-6 leading-relaxed">
                 Your subscription has been activated. You now have full access to the Poultry Management tools and the marketplace.
             </p>
+
+            @if($subscription)
+            <div class="bg-gray-800/50 rounded-xl p-4 mb-6 text-left space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-400 text-sm">Plan</span>
+                    <span class="text-white font-semibold">{{ ucfirst($subscription->plan_type) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400 text-sm">Cost</span>
+                    <span class="text-white font-semibold">₱{{ number_format($subscription->monthly_cost, 2) }}/mo</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400 text-sm">Products</span>
+                    <span class="text-white font-semibold">{{ $subscription->product_limit ?? '∞ Unlimited' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400 text-sm">Valid Until</span>
+                    <span class="text-white font-semibold">{{ $subscription->ends_at?->format('M d, Y') }}</span>
+                </div>
+            </div>
+            @endif
 
             <div class="space-y-4">
                 <a href="{{ route('dashboard') }}" class="block w-full bg-[#4fd1c5] hover:bg-[#38b2ac] text-[#111827] font-black py-4 rounded-2xl transition duration-300 uppercase tracking-widest">

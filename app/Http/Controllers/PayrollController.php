@@ -23,7 +23,7 @@ class PayrollController extends Controller
         
         $query = Payroll::byFarmOwner($farmOwner->id)
             ->with('employee:id,first_name,last_name,position')
-            ->select('id', 'employee_id', 'payroll_number', 'period_start', 'period_end', 'basic_pay', 'net_pay', 'status', 'payment_date');
+            ->select('id', 'employee_id', 'payroll_period', 'period_start', 'period_end', 'basic_pay', 'net_pay', 'status', 'pay_date');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -38,9 +38,9 @@ class PayrollController extends Controller
         $payrolls = $query->latest('period_start')->paginate(20);
 
         $stats = [
-            'pending' => Payroll::byFarmOwner($farmOwner->id)->byStatus('pending')->sum('net_pay'),
-            'paid_this_month' => Payroll::byFarmOwner($farmOwner->id)->byStatus('paid')
-                ->whereMonth('payment_date', now()->month)->sum('net_pay'),
+            'pending' => Payroll::byFarmOwner($farmOwner->id)->pending()->sum('net_pay'),
+            'paid_this_month' => Payroll::byFarmOwner($farmOwner->id)->paid()
+                ->whereMonth('pay_date', now()->month)->sum('net_pay'),
         ];
 
         return view('farmowner.payroll.index', compact('payrolls', 'stats'));
@@ -71,34 +71,34 @@ class PayrollController extends Controller
             'overtime_pay' => 'nullable|numeric|min:0',
             'holiday_pay' => 'nullable|numeric|min:0',
             'allowances' => 'nullable|numeric|min:0',
-            'bonus' => 'nullable|numeric|min:0',
-            'sss_contribution' => 'nullable|numeric|min:0',
-            'philhealth_contribution' => 'nullable|numeric|min:0',
-            'pagibig_contribution' => 'nullable|numeric|min:0',
-            'tax_withholding' => 'nullable|numeric|min:0',
+            'bonuses' => 'nullable|numeric|min:0',
+            'sss_deduction' => 'nullable|numeric|min:0',
+            'philhealth_deduction' => 'nullable|numeric|min:0',
+            'pagibig_deduction' => 'nullable|numeric|min:0',
+            'tax_deduction' => 'nullable|numeric|min:0',
             'loan_deduction' => 'nullable|numeric|min:0',
             'other_deductions' => 'nullable|numeric|min:0',
             'notes' => 'nullable|string',
         ]);
 
         $validated['farm_owner_id'] = $farmOwner->id;
-        $validated['prepared_by'] = Auth::id();
+        $validated['processed_by'] = Auth::id();
 
-        // Generate payroll number
+        // Generate payroll period label
         $count = Payroll::byFarmOwner($farmOwner->id)->whereYear('created_at', now()->year)->count() + 1;
-        $validated['payroll_number'] = 'PAY-' . now()->format('Y') . '-' . str_pad($count, 5, '0', STR_PAD_LEFT);
+        $validated['payroll_period'] = 'PAY-' . now()->format('Y') . '-' . str_pad($count, 5, '0', STR_PAD_LEFT);
 
         // Calculate totals
         $grossPay = ($validated['basic_pay'] ?? 0) 
             + ($validated['overtime_pay'] ?? 0) 
             + ($validated['holiday_pay'] ?? 0) 
             + ($validated['allowances'] ?? 0) 
-            + ($validated['bonus'] ?? 0);
+            + ($validated['bonuses'] ?? 0);
 
-        $totalDeductions = ($validated['sss_contribution'] ?? 0)
-            + ($validated['philhealth_contribution'] ?? 0)
-            + ($validated['pagibig_contribution'] ?? 0)
-            + ($validated['tax_withholding'] ?? 0)
+        $totalDeductions = ($validated['sss_deduction'] ?? 0)
+            + ($validated['philhealth_deduction'] ?? 0)
+            + ($validated['pagibig_deduction'] ?? 0)
+            + ($validated['tax_deduction'] ?? 0)
             + ($validated['loan_deduction'] ?? 0)
             + ($validated['other_deductions'] ?? 0);
 
@@ -116,7 +116,7 @@ class PayrollController extends Controller
         $farmOwner = $this->getFarmOwner();
         abort_if($payroll->farm_owner_id !== $farmOwner->id, 403);
 
-        $payroll->load(['employee', 'preparedBy', 'approvedBy']);
+        $payroll->load(['employee', 'processedBy']);
 
         return view('farmowner.payroll.show', compact('payroll'));
     }
@@ -126,11 +126,7 @@ class PayrollController extends Controller
         $farmOwner = $this->getFarmOwner();
         abort_if($payroll->farm_owner_id !== $farmOwner->id, 403);
 
-        $payroll->update([
-            'status' => 'approved',
-            'approved_by' => Auth::id(),
-            'approved_at' => now(),
-        ]);
+        $payroll->approve(Auth::id());
 
         return redirect()->route('payroll.show', $payroll)->with('success', 'Payroll approved.');
     }
@@ -142,15 +138,12 @@ class PayrollController extends Controller
 
         $validated = $request->validate([
             'payment_method' => 'required|in:cash,bank_transfer,check,gcash',
-            'payment_date' => 'required|date',
-            'payment_reference' => 'nullable|string|max:100',
         ]);
 
         $payroll->update([
             'status' => 'paid',
             'payment_method' => $validated['payment_method'],
-            'payment_date' => $validated['payment_date'],
-            'payment_reference' => $validated['payment_reference'],
+            'pay_date' => today(),
         ]);
 
         return redirect()->route('payroll.show', $payroll)->with('success', 'Payroll marked as paid.');
@@ -200,8 +193,8 @@ class PayrollController extends Controller
             Payroll::create([
                 'farm_owner_id' => $farmOwner->id,
                 'employee_id' => $employee->id,
-                'prepared_by' => Auth::id(),
-                'payroll_number' => 'PAY-' . now()->format('Y') . '-' . str_pad($count, 5, '0', STR_PAD_LEFT),
+                'processed_by' => Auth::id(),
+                'payroll_period' => 'PAY-' . now()->format('Y') . '-' . str_pad($count, 5, '0', STR_PAD_LEFT),
                 'period_start' => $periodStart,
                 'period_end' => $periodEnd,
                 'days_worked' => $daysWorked,

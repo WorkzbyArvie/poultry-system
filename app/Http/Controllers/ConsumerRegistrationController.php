@@ -17,11 +17,9 @@ class ConsumerRegistrationController extends Controller
             $validated = $request->validated();
 
             $user = User::create([
-                'full_name'    => $validated['full_name'],
-                'username'     => Str::slug($validated['full_name']) . rand(10, 99),
+                'name'         => $validated['full_name'],
                 'email'        => $validated['email'],
-                'phone_number' => $validated['phone_number'],
-                'address'      => $validated['address'],
+                'phone'        => $validated['phone_number'],
                 'password'     => Hash::make($validated['password']),
                 'role'         => 'consumer',
                 'status'       => 'active',

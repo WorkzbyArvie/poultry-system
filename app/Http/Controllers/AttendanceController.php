@@ -56,6 +56,11 @@ class AttendanceController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        // Verify employee belongs to this farm owner
+        $employee = \App\Models\Employee::where('id', $validated['employee_id'])
+            ->where('farm_owner_id', $farmOwner->id)
+            ->firstOrFail();
+
         $validated['farm_owner_id'] = $farmOwner->id;
 
         $attendance = Attendance::updateOrCreate(
@@ -79,6 +84,11 @@ class AttendanceController extends Controller
             'employee_id' => 'required|exists:employees,id',
         ]);
 
+        // Verify employee belongs to this farm owner
+        $employee = \App\Models\Employee::where('id', $validated['employee_id'])
+            ->where('farm_owner_id', $farmOwner->id)
+            ->firstOrFail();
+
         $attendance = Attendance::firstOrCreate(
             ['employee_id' => $validated['employee_id'], 'work_date' => today()],
             ['farm_owner_id' => $farmOwner->id, 'status' => 'present']
@@ -96,6 +106,11 @@ class AttendanceController extends Controller
         $validated = $request->validate([
             'employee_id' => 'required|exists:employees,id',
         ]);
+
+        // Verify employee belongs to this farm owner
+        $employee = \App\Models\Employee::where('id', $validated['employee_id'])
+            ->where('farm_owner_id', $farmOwner->id)
+            ->firstOrFail();
 
         $attendance = Attendance::where('employee_id', $validated['employee_id'])
             ->whereDate('work_date', today())
@@ -121,6 +136,16 @@ class AttendanceController extends Controller
             'attendance.*.time_in' => 'nullable|date_format:H:i',
             'attendance.*.time_out' => 'nullable|date_format:H:i',
         ]);
+
+        // Verify all employee IDs belong to this farm owner
+        $employeeIds = collect($validated['attendance'])->pluck('employee_id')->unique();
+        $validCount = \App\Models\Employee::where('farm_owner_id', $farmOwner->id)
+            ->whereIn('id', $employeeIds)
+            ->count();
+        
+        if ($validCount !== $employeeIds->count()) {
+            abort(403, 'One or more employees do not belong to your farm.');
+        }
 
         foreach ($validated['attendance'] as $record) {
             Attendance::updateOrCreate(

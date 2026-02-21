@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany, HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -129,7 +130,7 @@ class User extends Authenticatable
 
     public function scopeSuperAdmins(Builder $query)
     {
-        return $query->where('role', 'super_admin');
+        return $query->where('role', 'superadmin');
     }
 
     public function scopeWithFarmOwner(Builder $query)
@@ -150,7 +151,7 @@ class User extends Authenticatable
     // Methods
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'super_admin';
+        return $this->role === 'superadmin';
     }
 
     public function isFarmOwner(): bool
