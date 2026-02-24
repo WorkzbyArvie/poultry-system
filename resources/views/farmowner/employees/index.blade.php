@@ -38,7 +38,9 @@
             <option value="">All Status</option>
             <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Active</option>
             <option value="on_leave" {{ request('status') === 'on_leave' ? 'selected' : '' }}>On Leave</option>
+            <option value="suspended" {{ request('status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
             <option value="terminated" {{ request('status') === 'terminated' ? 'selected' : '' }}>Terminated</option>
+            <option value="resigned" {{ request('status') === 'resigned' ? 'selected' : '' }}>Resigned</option>
         </select>
         <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500">Filter</button>
     </form>
@@ -81,6 +83,11 @@
                         <div class="flex gap-2">
                             <a href="{{ route('employees.show', $emp) }}" class="text-blue-400 hover:text-blue-300">View</a>
                             <a href="{{ route('employees.edit', $emp) }}" class="text-green-400 hover:text-green-300">Edit</a>
+                            <form method="POST" action="{{ route('employees.destroy', $emp) }}" onsubmit="return confirm('Delete this employee account? This will also delete their login access.');" class="inline">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-red-400 hover:text-red-300">Delete</button>
+                            </form>
                         </div>
                     </td>
                 </tr>

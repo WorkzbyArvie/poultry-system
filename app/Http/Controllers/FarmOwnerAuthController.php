@@ -26,6 +26,12 @@ class FarmOwnerAuthController extends Controller
             'password' => 'required|string|min:8',
         ]);
 
+        $existingUser = User::where('email', $validated['email'])->first();
+
+        if ($existingUser && $existingUser->role !== 'farm_owner') {
+            return back()->withErrors(['email' => 'This account is not a farm owner account. Use the main login page.'])->withInput();
+        }
+
         $user = User::where('email', $validated['email'])->where('role', 'farm_owner')->first();
 
         if (!$user || !Hash::check($validated['password'], $user->password)) {

@@ -113,6 +113,11 @@ class FarmOwner extends Model
         return $this->hasMany(Delivery::class);
     }
 
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
     // Query Scopes
     public function scopeActive(Builder $query)
     {

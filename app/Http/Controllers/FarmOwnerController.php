@@ -60,7 +60,7 @@ class FarmOwnerController extends Controller
             return [
                 'total_products' => $farm_owner->products()->count(),
                 'total_orders' => $farm_owner->orders()->count(),
-                'active_subscription' => $farm_owner->subscriptions()->where('status', 'active')->exists(),
+                'active_subscription' => $farm_owner->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->exists(),
                 'permit_status' => $farm_owner->permit_status,
             ];
         });
@@ -123,7 +123,7 @@ class FarmOwnerController extends Controller
         }
 
         $subscriptions = $farm_owner->subscriptions()
-            ->select('id', 'farm_owner_id', 'plan_type', 'status', 'started_at', 'expires_at', 'created_at')
+            ->select('id', 'farm_owner_id', 'plan_type', 'status', 'started_at', 'ends_at', 'created_at')
             ->latest('created_at')
             ->paginate(10);
 

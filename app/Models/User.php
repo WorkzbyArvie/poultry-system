@@ -7,11 +7,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    public const DEPARTMENT_ROLES = [
+        'farm_operations',
+        'hr',
+        'finance',
+        'logistics',
+        'sales',
+        'admin',
+    ];
 
     protected $fillable = [
         'name',
@@ -96,6 +106,11 @@ class User extends Authenticatable
         return $this->hasMany(Document::class, 'verified_by');
     }
 
+    public function supportMessages()
+    {
+        return $this->hasMany(SupportMessage::class, 'sender_id');
+    }
+
     // Query Scopes
     public function scopeByRole(Builder $query, string $role)
     {
@@ -130,7 +145,7 @@ class User extends Authenticatable
 
     public function scopeSuperAdmins(Builder $query)
     {
-        return $query->where('role', 'superadmin');
+        return $query->whereIn('role', ['superadmin', 'super_admin', 'super admin']);
     }
 
     public function scopeWithFarmOwner(Builder $query)
@@ -151,17 +166,51 @@ class User extends Authenticatable
     // Methods
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'superadmin';
+        return in_array($this->normalizeRoleValue($this->role), ['superadmin'], true);
     }
 
     public function isFarmOwner(): bool
     {
-        return $this->role === 'farm_owner';
+        return in_array($this->normalizeRoleValue($this->role), ['farm_owner'], true);
+    }
+
+    private function normalizeRoleValue(?string $role): string
+    {
+        $normalized = str_replace([' ', '-'], '_', strtolower(trim((string) $role)));
+
+        return match ($normalized) {
+            'super_admin' => 'superadmin',
+            'farmowner' => 'farm_owner',
+            default => $normalized,
+        };
     }
 
     public function isConsumer(): bool
     {
         return $this->role === 'consumer';
+    }
+
+    public function isHR(): bool
+    {
+        return $this->normalizeRoleValue($this->role) === 'hr';
+    }
+
+    public function isDepartmentRole(): bool
+    {
+        return in_array($this->normalizeRoleValue($this->role), self::DEPARTMENT_ROLES, true);
+    }
+
+    public function departmentDashboardRouteName(): ?string
+    {
+        return match ($this->normalizeRoleValue($this->role)) {
+            'hr' => 'hr.users.index',
+            'farm_operations' => 'department.farm_operations.dashboard',
+            'finance' => 'department.finance.dashboard',
+            'logistics' => 'department.logistics.dashboard',
+            'sales' => 'department.sales.dashboard',
+            'admin' => 'department.admin.dashboard',
+            default => null,
+        };
     }
 
     public function isStaff(): bool
@@ -186,9 +235,28 @@ class User extends Authenticatable
 
     public function markEmailAsVerified()
     {
-        if (!$this->email_verified_at) {
-            $this->update(['email_verified_at' => now()]);
+        if ($this->hasVerifiedEmail()) {
+            return false;
         }
+
+        return $this->forceFill([
+            'email_verified_at' => now(),
+        ])->save();
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        return !is_null($this->email_verified_at);
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new VerifyEmail());
+    }
+
+    public function getEmailForVerification(): string
+    {
+        return $this->email;
     }
 
     public function markPhoneAsVerified()

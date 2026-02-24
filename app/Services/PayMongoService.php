@@ -9,11 +9,13 @@ class PayMongoService
 {
     protected string $baseUrl;
     protected string $secretKey;
+    protected bool $verifySsl;
 
     public function __construct()
     {
         $this->baseUrl = config('services.paymongo.base_url', 'https://api.paymongo.com/v1');
         $this->secretKey = config('services.paymongo.secret_key', '');
+        $this->verifySsl = (bool) config('services.paymongo.verify_ssl', true);
     }
 
     /**
@@ -21,9 +23,16 @@ class PayMongoService
      */
     public function createCheckoutSession(array $params): ?array
     {
+        if (empty($this->secretKey)) {
+            Log::error('PayMongo secret key is not configured');
+            return null;
+        }
+
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
             'Authorization' => 'Basic ' . base64_encode($this->secretKey . ':'),
+        ])->withOptions([
+            'verify' => $this->verifySsl,
         ])->post("{$this->baseUrl}/checkout_sessions", [
             'data' => [
                 'attributes' => [
@@ -73,9 +82,16 @@ class PayMongoService
      */
     public function createPaymentLink(array $params): ?array
     {
+        if (empty($this->secretKey)) {
+            Log::error('PayMongo secret key is not configured');
+            return null;
+        }
+
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
             'Authorization' => 'Basic ' . base64_encode($this->secretKey . ':'),
+        ])->withOptions([
+            'verify' => $this->verifySsl,
         ])->post("{$this->baseUrl}/links", [
             'data' => [
                 'attributes' => [
@@ -104,6 +120,8 @@ class PayMongoService
     {
         $response = Http::withHeaders([
             'Authorization' => 'Basic ' . base64_encode($this->secretKey . ':'),
+        ])->withOptions([
+            'verify' => $this->verifySsl,
         ])->get("{$this->baseUrl}/checkout_sessions/{$checkoutId}");
 
         if (!$response->successful()) {
@@ -124,6 +142,8 @@ class PayMongoService
     {
         $response = Http::withHeaders([
             'Authorization' => 'Basic ' . base64_encode($this->secretKey . ':'),
+        ])->withOptions([
+            'verify' => $this->verifySsl,
         ])->get("{$this->baseUrl}/payments/{$paymentId}");
 
         if (!$response->successful()) {
@@ -141,6 +161,8 @@ class PayMongoService
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
             'Authorization' => 'Basic ' . base64_encode($this->secretKey . ':'),
+        ])->withOptions([
+            'verify' => $this->verifySsl,
         ])->post("{$this->baseUrl}/webhooks", [
             'data' => [
                 'attributes' => [
@@ -179,7 +201,12 @@ class PayMongoService
         $signatures = [];
 
         foreach ($parts as $part) {
-            [$key, $value] = explode('=', $part, 2);
+            $segments = explode('=', $part, 2);
+            if (count($segments) !== 2) {
+                continue;
+            }
+
+            [$key, $value] = $segments;
             if ($key === 't') {
                 $timestamp = $value;
             } elseif (in_array($key, ['te', 'li'])) {

@@ -90,6 +90,7 @@ class SuperAdminController extends Controller
         }
 
         $farm_owner->update(['permit_status' => 'approved']);
+        Cache::forget("farm_{$farm_owner->id}_stats");
         
         Log::info('Farm owner approved', ['farm_owner_id' => $id, 'user_id' => $farm_owner->user_id]);
         
@@ -102,6 +103,7 @@ class SuperAdminController extends Controller
         
         $farm_owner = FarmOwner::findOrFail($id);
         $farm_owner->update(['permit_status' => 'rejected']);
+        Cache::forget("farm_{$farm_owner->id}_stats");
         
         Log::info('Farm owner rejected', ['farm_owner_id' => $id, 'reason' => $request->reason]);
         
@@ -143,7 +145,7 @@ class SuperAdminController extends Controller
             'farmOwner:id,farm_name,user_id',
             'farmOwner.user:id,name,email'
         ])
-        ->select('id', 'farm_owner_id', 'plan_type', 'status', 'started_at', 'expires_at', 'payment_reference')
+        ->select('id', 'farm_owner_id', 'plan_type', 'status', 'started_at', 'ends_at', 'paymongo_subscription_id')
         ->latest('created_at')
         ->paginate(20);
 

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 
 class Employee extends Model
 {
@@ -66,7 +67,16 @@ class Employee extends Model
 
     public function scopeByDepartment(Builder $query, string $department)
     {
-        return $query->where('department', $department);
+        $normalizedDepartment = (string) Str::of($department)->trim()->lower()->replace(' ', '_');
+
+        return $query->whereRaw("LOWER(REPLACE(department, ' ', '_')) = ?", [$normalizedDepartment]);
+    }
+
+    public function scopeByStatus(Builder $query, string $status)
+    {
+        $normalizedStatus = (string) Str::of($status)->trim()->lower()->replace(' ', '_');
+
+        return $query->whereRaw("LOWER(REPLACE(status, ' ', '_')) = ?", [$normalizedStatus]);
     }
 
     // Computed

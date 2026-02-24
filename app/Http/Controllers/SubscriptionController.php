@@ -21,11 +21,11 @@ class SubscriptionController extends Controller
      */
     protected array $plans = [
         'starter' => [
-            'amount'          => 3000,       // ₱30.00 in centavos
+            'amount'          => 10000,      // ₱100.00 in centavos (PayMongo minimum)
             'product_limit'   => 2,
             'order_limit'     => 50,
             'commission_rate' => 5.00,
-            'monthly_cost'    => 30,
+            'monthly_cost'    => 100,
             'months'          => 1,
             'label'           => 'Starter Plan',
         ],
@@ -68,6 +68,10 @@ class SubscriptionController extends Controller
     public function pay(Request $request)
     {
         try {
+            if (empty(config('services.paymongo.secret_key')) || empty(config('services.paymongo.public_key'))) {
+                return back()->withErrors(['payment' => 'PayMongo keys are not configured. Please set PAYMONGO_SECRET_KEY and PAYMONGO_PUBLIC_KEY in .env']);
+            }
+
             $plan = $request->query('plan');
 
             if (!array_key_exists($plan, $this->plans)) {
@@ -132,6 +136,13 @@ class SubscriptionController extends Controller
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if (str_contains($e->getMessage(), 'cURL error 60')) {
+                return back()->withErrors([
+                    'payment' => 'PayMongo SSL verification failed in local environment. Set PAYMONGO_VERIFY_SSL=false in .env and run php artisan config:clear.',
+                ]);
+            }
+
             return back()->withErrors(['payment' => 'An unexpected error occurred. Please try again.']);
         }
     }
@@ -331,6 +342,8 @@ class SubscriptionController extends Controller
 
             // Update farm owner status
             $farmOwner->update(['subscription_status' => 'active']);
+
+            Cache::forget("farm_{$farmOwner->id}_stats");
         });
 
         Log::info("Subscription activated", [

@@ -106,6 +106,15 @@
             <span class="mr-2">📋</span> Reports
         </a>
 
+        <!-- Support -->
+        <div class="pt-4">
+            <p class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Support</p>
+        </div>
+        <a href="{{ route('farmowner.support.index') }}"
+           class="block px-4 py-2.5 rounded-lg {{ request()->routeIs('farmowner.support.*') ? 'bg-orange-600 text-white' : 'text-gray-300 hover:bg-gray-700' }}">
+            <span class="mr-2">💬</span> Customer Support
+        </a>
+
         <!-- Settings -->
         <div class="pt-4">
             <p class="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider">Settings</p>

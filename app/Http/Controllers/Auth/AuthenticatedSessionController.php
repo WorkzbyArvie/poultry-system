@@ -29,13 +29,41 @@ class AuthenticatedSessionController extends Controller
 
     $user = Auth::user();
 
+    if ($user->isDepartmentRole() && !$user->hasVerifiedEmail()) {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return back()->withErrors([
+            'email' => 'Please verify your email first. Check your inbox for the verification link.',
+        ]);
+    }
+
     // Ensure Super Admins go to their specific Poultry Admin portal
-    if ($user->role === 'superadmin') {
+    if ($user->isSuperAdmin()) {
         return redirect()->route('superadmin.dashboard');
     }
 
     if ($user->role === 'client') {
         return redirect()->route('client.dashboard');
+    }
+
+    if ($user->isFarmOwner()) {
+        return redirect()->route('farmowner.dashboard');
+    }
+
+    if ($user->isHR()) {
+        return redirect()->route('hr.users.index');
+    }
+
+    if ($user->isDepartmentRole()) {
+        $routeName = $user->departmentDashboardRouteName();
+
+        if ($routeName) {
+            return redirect()->route($routeName);
+        }
+
+        return redirect()->route('dashboard');
     }
 
     // Only fallback to home if no role matches

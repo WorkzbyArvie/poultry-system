@@ -4,8 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\FarmOwner;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\URL;
 
 class EmployeeController extends Controller
 {
@@ -26,7 +31,7 @@ class EmployeeController extends Controller
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->byStatus($request->status);
         }
 
         $employees = $query->orderBy('last_name')->paginate(20);
@@ -48,13 +53,14 @@ class EmployeeController extends Controller
     public function store(Request $request)
     {
         $farmOwner = $this->getFarmOwner();
+        $verificationUrl = null;
 
         $validated = $request->validate([
-            'employee_id' => 'required|string|max:50|unique:employees,employee_id,NULL,id,farm_owner_id,' . $farmOwner->id,
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
-            'email' => 'nullable|email|max:255',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             'birth_date' => 'nullable|date',
@@ -76,11 +82,56 @@ class EmployeeController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $validated['farm_owner_id'] = $farmOwner->id;
+        DB::transaction(function () use ($validated, $farmOwner, &$verificationUrl) {
+            $employeeUser = User::create([
+                'name' => trim($validated['first_name'] . ' ' . $validated['last_name']),
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => $validated['department'],
+                'status' => 'active',
+                'email_verified_at' => null,
+            ]);
 
-        Employee::create($validated);
+            $employeeUser->sendEmailVerificationNotification();
 
-        return redirect()->route('employees.index')->with('success', 'Employee added successfully.');
+            if (config('mail.default') === 'log') {
+                $verificationUrl = URL::temporarySignedRoute(
+                    'verification.verify',
+                    now()->addMinutes(60),
+                    [
+                        'id' => $employeeUser->id,
+                        'hash' => sha1($employeeUser->getEmailForVerification()),
+                    ]
+                );
+            }
+
+            $employeeData = collect($validated)
+                ->except(['password', 'password_confirmation'])
+                ->toArray();
+
+            $employeeData['farm_owner_id'] = $farmOwner->id;
+            $employeeData['user_id'] = $employeeUser->id;
+            $employeeData['employee_id'] = $this->generateEmployeeId($farmOwner->id);
+
+            Employee::create($employeeData);
+        });
+
+        $message = 'Employee added successfully. Verification email sent to their account email.';
+
+        if ($verificationUrl) {
+            $message .= ' DEV verification link: ' . $verificationUrl;
+        }
+
+        return redirect()->route('employees.index')->with('success', $message);
+    }
+
+    private function generateEmployeeId(int $farmOwnerId): string
+    {
+        do {
+            $employeeId = 'EMP-' . Str::upper(Str::random(6));
+        } while (Employee::where('farm_owner_id', $farmOwnerId)->where('employee_id', $employeeId)->exists());
+
+        return $employeeId;
     }
 
     public function show(Employee $employee)
@@ -138,8 +189,16 @@ class EmployeeController extends Controller
         $farmOwner = $this->getFarmOwner();
         abort_if($employee->farm_owner_id !== $farmOwner->id, 403);
 
-        $employee->delete();
+        DB::transaction(function () use ($employee) {
+            $linkedUser = $employee->user;
 
-        return redirect()->route('employees.index')->with('success', 'Employee removed.');
+            $employee->delete();
+
+            if ($linkedUser) {
+                $linkedUser->delete();
+            }
+        });
+
+        return redirect()->route('employees.index')->with('success', 'Employee account removed.');
     }
 }

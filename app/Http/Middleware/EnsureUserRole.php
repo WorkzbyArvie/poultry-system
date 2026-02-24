@@ -20,10 +20,25 @@ class EnsureUserRole
             return redirect('/login');
         }
 
-        if (!in_array(Auth::user()->role, $roles, true)) {
+        $userRole = $this->normalizeRole((string) Auth::user()->role);
+        $allowedRoles = array_map(fn(string $role) => $this->normalizeRole($role), $roles);
+
+        if (!in_array($userRole, $allowedRoles, true)) {
             abort(403, 'Unauthorized action.');
         }
 
         return $next($request);
+    }
+
+    private function normalizeRole(string $role): string
+    {
+        $normalized = str_replace([' ', '-'], '_', strtolower(trim($role)));
+
+        return match ($normalized) {
+            'super_admin' => 'superadmin',
+            'farmowner' => 'farm_owner',
+            'farm_operations' => 'farm_operations',
+            default => $normalized,
+        };
     }
 }

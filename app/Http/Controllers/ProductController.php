@@ -38,11 +38,10 @@ class ProductController extends Controller
         $user = Auth::user();
         $farm_owner = $user->farmOwner;
 
-        // Check for active subscription
-        $active_sub = $farm_owner->subscriptions()->active()->first();
+        $active_sub = $this->activeSubscriptionOrRedirect($farm_owner);
         if (!$active_sub) {
             return redirect()->route('farmowner.subscriptions')
-                ->with('error', 'You need an active subscription to add products. Please subscribe to a plan first.');
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
         }
 
         // Check product limit
@@ -64,11 +63,10 @@ class ProductController extends Controller
         $user = Auth::user();
         $farm_owner = $user->farmOwner;
 
-        // Check for active subscription
-        $active_sub = $farm_owner->subscriptions()->active()->first();
+        $active_sub = $this->activeSubscriptionOrRedirect($farm_owner);
         if (!$active_sub) {
             return redirect()->route('farmowner.subscriptions')
-                ->with('error', 'You need an active subscription to add products. Please subscribe to a plan first.');
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
         }
 
         // Check product limit
@@ -118,8 +116,14 @@ class ProductController extends Controller
     public function edit(Product $product)
     {
         $this->authorize_farm_owner();
+
+        $farm_owner = Auth::user()->farmOwner;
+        if (!$this->activeSubscriptionOrRedirect($farm_owner)) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
+        }
         
-        if ($product->farm_owner_id !== Auth::user()->farmOwner->id) {
+        if ($product->farm_owner_id !== $farm_owner->id) {
             abort(403);
         }
 
@@ -130,7 +134,13 @@ class ProductController extends Controller
     {
         $this->authorize_farm_owner();
 
-        if ($product->farm_owner_id !== Auth::user()->farmOwner->id) {
+        $farm_owner = Auth::user()->farmOwner;
+        if (!$this->activeSubscriptionOrRedirect($farm_owner)) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
+        }
+
+        if ($product->farm_owner_id !== $farm_owner->id) {
             abort(403);
         }
 
@@ -154,7 +164,13 @@ class ProductController extends Controller
     {
         $this->authorize_farm_owner();
 
-        if ($product->farm_owner_id !== Auth::user()->farmOwner->id) {
+        $farm_owner = Auth::user()->farmOwner;
+        if (!$this->activeSubscriptionOrRedirect($farm_owner)) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
+        }
+
+        if ($product->farm_owner_id !== $farm_owner->id) {
             abort(403);
         }
 
@@ -167,7 +183,13 @@ class ProductController extends Controller
     {
         $this->authorize_farm_owner();
 
-        if ($product->farm_owner_id !== Auth::user()->farmOwner->id) {
+        $farm_owner = Auth::user()->farmOwner;
+        if (!$this->activeSubscriptionOrRedirect($farm_owner)) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to manage products. Please subscribe to a plan first.');
+        }
+
+        if ($product->farm_owner_id !== $farm_owner->id) {
             abort(403);
         }
 
@@ -206,5 +228,10 @@ class ProductController extends Controller
         if ($user->role !== 'farm_owner' || !$user->farmOwner) {
             abort(403);
         }
+    }
+
+    private function activeSubscriptionOrRedirect(FarmOwner $farm_owner)
+    {
+        return $farm_owner->subscriptions()->active()->first();
     }
 }

@@ -31,8 +31,15 @@
         <!-- Main Content -->
         <main class="flex-1 overflow-auto">
             <header class="bg-gray-800 border-b border-gray-700 px-8 py-4">
-                <h2 class="text-2xl font-bold">Users Management</h2>
-                <p class="text-gray-400 text-sm">Manage system users and access</p>
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold">Users Management</h2>
+                        <p class="text-gray-400 text-sm">Manage system users and access</p>
+                    </div>
+                    <a href="{{ route('hr.users.create') }}" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold">
+                        + Create Department User
+                    </a>
+                </div>
             </header>
 
             <div class="p-8">

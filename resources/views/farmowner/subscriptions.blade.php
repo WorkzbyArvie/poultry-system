@@ -75,7 +75,7 @@
                             </div>
                             <div class="p-6">
                                 <div class="mb-6">
-                                    <p class="text-3xl font-bold text-white">₱30<span class="text-sm text-gray-300">/month</span></p>
+                                    <p class="text-3xl font-bold text-white">₱100<span class="text-sm text-gray-300">/month</span></p>
                                 </div>
                                 <ul class="space-y-3 mb-6">
                                     <li class="flex items-start">

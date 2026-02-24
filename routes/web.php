@@ -23,6 +23,8 @@ use App\Http\Controllers\IncomeController;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SupportController;
+use App\Http\Controllers\DepartmentUserController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
@@ -71,13 +73,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
         
-        if ($user->role === 'superadmin') {
+        if ($user->isSuperAdmin()) {
             // This sends you to the correct orange/black portal
             return redirect()->route('superadmin.dashboard');
         }
 
         if ($user->role === 'client') {
             return redirect()->route('client.dashboard');
+        }
+
+        if ($user->isFarmOwner()) {
+            return redirect()->route('farmowner.dashboard');
+        }
+
+        if ($user->isHR()) {
+            return redirect()->route('hr.users.index');
+        }
+
+        if ($user->isDepartmentRole()) {
+            $routeName = $user->departmentDashboardRouteName();
+
+            if ($routeName) {
+                return redirect()->route($routeName);
+            }
+
+            return view('dashboard');
         }
 
         // Fallback for others (like consumers)
@@ -94,16 +114,93 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/super-admin/orders', [SuperAdminController::class, 'orders'])->name('superadmin.orders');
         Route::get('/super-admin/subscriptions', [SuperAdminController::class, 'subscriptions'])->name('superadmin.subscriptions');
         Route::get('/super-admin/users', [SuperAdminController::class, 'users'])->name('superadmin.users');
+        Route::get('/super-admin/support', [SupportController::class, 'adminIndex'])->name('superadmin.support.index');
+        Route::get('/super-admin/support/{ticket}', [SupportController::class, 'adminShow'])->name('superadmin.support.show');
+        Route::post('/super-admin/support/{ticket}/reply', [SupportController::class, 'adminReply'])->name('superadmin.support.reply');
+        Route::post('/super-admin/support/{ticket}/close', [SupportController::class, 'adminClose'])->name('superadmin.support.close');
+    });
+
+    // --- HR & Department User Management ---
+    Route::middleware('role:superadmin,hr')->group(function () {
+        Route::get('/hr/users', [DepartmentUserController::class, 'index'])->name('hr.users.index');
+        Route::get('/hr/users/create', [DepartmentUserController::class, 'create'])->name('hr.users.create');
+        Route::post('/hr/users', [DepartmentUserController::class, 'store'])->name('hr.users.store');
+    });
+
+    Route::middleware('role:farm_operations')->group(function () {
+        Route::get('/department/farm-operations', function () {
+            return view('department.dashboard', [
+                'title' => 'Farm Operations Department',
+                'description' => 'Access flock, vaccination, and farm operation workflows.',
+                'actions' => [
+                    ['label' => 'Go to Dashboard', 'url' => route('dashboard'), 'hint' => 'Department home and quick links'],
+                ],
+            ]);
+        })->name('department.farm_operations.dashboard');
+    });
+
+    Route::middleware('role:finance')->group(function () {
+        Route::get('/department/finance', function () {
+            return view('department.dashboard', [
+                'title' => 'Finance Department',
+                'description' => 'Access finance workflows and records for your assigned role.',
+                'actions' => [
+                    ['label' => 'Go to Dashboard', 'url' => route('dashboard'), 'hint' => 'Department home and quick links'],
+                ],
+            ]);
+        })->name('department.finance.dashboard');
+    });
+
+    Route::middleware('role:logistics')->group(function () {
+        Route::get('/department/logistics', function () {
+            return view('department.dashboard', [
+                'title' => 'Logistics Department',
+                'description' => 'Access delivery, routing, and logistics tracking workflows.',
+                'actions' => [
+                    ['label' => 'Go to Dashboard', 'url' => route('dashboard'), 'hint' => 'Department home and quick links'],
+                ],
+            ]);
+        })->name('department.logistics.dashboard');
+    });
+
+    Route::middleware('role:sales')->group(function () {
+        Route::get('/department/sales', function () {
+            return view('department.dashboard', [
+                'title' => 'Sales Department',
+                'description' => 'Access sales monitoring and customer-facing workflows.',
+                'actions' => [
+                    ['label' => 'Go to Dashboard', 'url' => route('dashboard'), 'hint' => 'Department home and quick links'],
+                ],
+            ]);
+        })->name('department.sales.dashboard');
+    });
+
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/department/admin', function () {
+            return view('department.dashboard', [
+                'title' => 'Admin Department',
+                'description' => 'Access administrative workflows and role-specific operations.',
+                'actions' => [
+                    ['label' => 'Go to Dashboard', 'url' => route('dashboard'), 'hint' => 'Department home and quick links'],
+                ],
+            ]);
+        })->name('department.admin.dashboard');
     });
     
     // --- Farm Owner Routes (Authenticated) ---
-    Route::middleware('role:farm_owner')->prefix('farm-owner')->group(function () {
+    Route::middleware(['role:farm_owner', 'subscription.active'])->prefix('farm-owner')->group(function () {
         // Dashboard & Profile
         Route::get('/dashboard', [FarmOwnerController::class, 'dashboard'])->name('farmowner.dashboard');
         Route::get('/profile', [FarmOwnerController::class, 'profile'])->name('farmowner.profile');
         Route::put('/profile', [FarmOwnerController::class, 'update_profile'])->name('farmowner.update_profile');
         Route::get('/subscriptions', [FarmOwnerController::class, 'subscriptions'])->name('farmowner.subscriptions');
         Route::post('/logout', [FarmOwnerAuthController::class, 'logout'])->name('farmowner.logout');
+
+        // Support
+        Route::get('/support', [SupportController::class, 'farmOwnerIndex'])->name('farmowner.support.index');
+        Route::post('/support', [SupportController::class, 'farmOwnerStore'])->name('farmowner.support.store');
+        Route::get('/support/{ticket}', [SupportController::class, 'farmOwnerShow'])->name('farmowner.support.show');
+        Route::post('/support/{ticket}/reply', [SupportController::class, 'farmOwnerReply'])->name('farmowner.support.reply');
 
         // Flock Management
         Route::resource('flocks', FlockController::class);

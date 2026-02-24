@@ -208,6 +208,16 @@ class OrderController extends Controller
             abort(403);
         }
 
+        $activeSubscription = $user->farmOwner->subscriptions()
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->first();
+
+        if (!$activeSubscription) {
+            return redirect()->route('farmowner.subscriptions')
+                ->with('error', 'You need an active subscription to manage and confirm orders.');
+        }
+
         if ($order->status !== 'pending') {
             return redirect()->back()->with('error', 'Order cannot be confirmed');
         }
