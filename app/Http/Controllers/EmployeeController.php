@@ -7,6 +7,7 @@ use App\Models\FarmOwner;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -14,6 +15,11 @@ use Illuminate\Support\Facades\URL;
 
 class EmployeeController extends Controller
 {
+    private function statsCacheKey(int $farmOwnerId): string
+    {
+        return "farm_{$farmOwnerId}_employee_stats";
+    }
+
     private function getFarmOwner()
     {
         return FarmOwner::where('user_id', Auth::id())->firstOrFail();
@@ -36,11 +42,19 @@ class EmployeeController extends Controller
 
         $employees = $query->orderBy('last_name')->paginate(20);
 
-        $stats = [
-            'total' => Employee::byFarmOwner($farmOwner->id)->count(),
-            'active' => Employee::byFarmOwner($farmOwner->id)->active()->count(),
-            'total_monthly_salary' => Employee::byFarmOwner($farmOwner->id)->active()->sum('monthly_salary'),
-        ];
+        $stats = Cache::remember($this->statsCacheKey($farmOwner->id), 300, function () use ($farmOwner) {
+            $aggregate = Employee::byFarmOwner($farmOwner->id)
+                ->selectRaw("COUNT(*) as total")
+                ->selectRaw("SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active")
+                ->selectRaw("COALESCE(SUM(CASE WHEN status = 'active' THEN monthly_salary ELSE 0 END), 0) as total_monthly_salary")
+                ->first();
+
+            return [
+                'total' => (int) ($aggregate->total ?? 0),
+                'active' => (int) ($aggregate->active ?? 0),
+                'total_monthly_salary' => (float) ($aggregate->total_monthly_salary ?? 0),
+            ];
+        });
 
         return view('farmowner.employees.index', compact('employees', 'stats'));
     }
@@ -116,6 +130,8 @@ class EmployeeController extends Controller
             Employee::create($employeeData);
         });
 
+        Cache::forget($this->statsCacheKey($farmOwner->id));
+
         $message = 'Employee added successfully. Verification email sent to their account email.';
 
         if ($verificationUrl) {
@@ -180,6 +196,7 @@ class EmployeeController extends Controller
         ]);
 
         $employee->update($validated);
+        Cache::forget($this->statsCacheKey($farmOwner->id));
 
         return redirect()->route('employees.show', $employee)->with('success', 'Employee updated.');
     }
@@ -198,6 +215,8 @@ class EmployeeController extends Controller
                 $linkedUser->delete();
             }
         });
+
+        Cache::forget($this->statsCacheKey($farmOwner->id));
 
         return redirect()->route('employees.index')->with('success', 'Employee account removed.');
     }

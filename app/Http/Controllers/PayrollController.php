@@ -31,16 +31,29 @@ class PayrollController extends Controller
 
         if ($request->filled('month')) {
             $date = Carbon::parse($request->month);
-            $query->whereMonth('period_start', $date->month)
-                  ->whereYear('period_start', $date->year);
+            $monthStart = $date->copy()->startOfMonth()->toDateString();
+            $nextMonthStart = $date->copy()->startOfMonth()->addMonth()->toDateString();
+
+            $query->where('period_start', '>=', $monthStart)
+                ->where('period_start', '<', $nextMonthStart);
         }
 
         $payrolls = $query->latest('period_start')->paginate(20);
 
+        $currentMonthStart = now()->startOfMonth()->toDateString();
+        $nextMonthStart = now()->startOfMonth()->addMonth()->toDateString();
+
+        $statsAggregate = Payroll::byFarmOwner($farmOwner->id)
+            ->selectRaw("COALESCE(SUM(CASE WHEN status IN ('draft', 'pending') THEN net_pay ELSE 0 END), 0) as pending")
+            ->selectRaw(
+                "COALESCE(SUM(CASE WHEN status = 'paid' AND pay_date >= ? AND pay_date < ? THEN net_pay ELSE 0 END), 0) as paid_this_month",
+                [$currentMonthStart, $nextMonthStart]
+            )
+            ->first();
+
         $stats = [
-            'pending' => Payroll::byFarmOwner($farmOwner->id)->pending()->sum('net_pay'),
-            'paid_this_month' => Payroll::byFarmOwner($farmOwner->id)->paid()
-                ->whereMonth('pay_date', now()->month)->sum('net_pay'),
+            'pending' => (float) ($statsAggregate->pending ?? 0),
+            'paid_this_month' => (float) ($statsAggregate->paid_this_month ?? 0),
         ];
 
         return view('farmowner.payroll.index', compact('payrolls', 'stats'));

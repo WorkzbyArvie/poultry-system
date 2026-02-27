@@ -13,6 +13,16 @@ use Carbon\Carbon;
 
 class DeliveryController extends Controller
 {
+    private function statsCacheKey(int $farmOwnerId): string
+    {
+        return "farm_{$farmOwnerId}_delivery_stats";
+    }
+
+    private function clearStatsCache(int $farmOwnerId): void
+    {
+        Cache::forget($this->statsCacheKey($farmOwnerId));
+    }
+
     private function getFarmOwner()
     {
         return FarmOwner::where('user_id', Auth::id())->firstOrFail();
@@ -36,19 +46,27 @@ class DeliveryController extends Controller
 
         $deliveries = $query->latest('scheduled_date')->paginate(20);
 
-        // Single query for COD pending
-        $codPending = Delivery::byFarmOwner($farmOwner->id)
-            ->where('cod_collected', false)
-            ->where('cod_amount', '>', 0)
-            ->sum('cod_amount');
+        $stats = Cache::remember($this->statsCacheKey($farmOwner->id), 120, function () use ($farmOwner) {
+            $todayStart = now()->startOfDay()->toDateTimeString();
+            $tomorrowStart = now()->startOfDay()->addDay()->toDateTimeString();
 
-        $stats = [
-            'pending' => Delivery::byFarmOwner($farmOwner->id)->byStatus('pending')->count(),
-            'dispatched' => Delivery::byFarmOwner($farmOwner->id)->byStatus('dispatched')->count(),
-            'delivered_today' => Delivery::byFarmOwner($farmOwner->id)->byStatus('delivered')
-                ->whereDate('delivered_at', today())->count(),
-            'cod_pending' => $codPending,
-        ];
+            $aggregate = Delivery::byFarmOwner($farmOwner->id)
+                ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending")
+                ->selectRaw("SUM(CASE WHEN status = 'dispatched' THEN 1 ELSE 0 END) as dispatched")
+                ->selectRaw(
+                    "SUM(CASE WHEN status = 'delivered' AND delivered_at >= ? AND delivered_at < ? THEN 1 ELSE 0 END) as delivered_today",
+                    [$todayStart, $tomorrowStart]
+                )
+                ->selectRaw("COALESCE(SUM(CASE WHEN cod_collected = false AND cod_amount > 0 THEN cod_amount ELSE 0 END), 0) as cod_pending")
+                ->first();
+
+            return [
+                'pending' => (int) ($aggregate->pending ?? 0),
+                'dispatched' => (int) ($aggregate->dispatched ?? 0),
+                'delivered_today' => (int) ($aggregate->delivered_today ?? 0),
+                'cod_pending' => (float) ($aggregate->cod_pending ?? 0),
+            ];
+        });
 
         return view('farmowner.deliveries.index', compact('deliveries', 'stats'));
     }
@@ -99,6 +117,8 @@ class DeliveryController extends Controller
             $delivery->assignDriver($delivery->driver_id, Auth::id());
         }
 
+        $this->clearStatsCache($farmOwner->id);
+
         return redirect()->route('deliveries.index')->with('success', 'Delivery created.');
     }
 
@@ -141,6 +161,7 @@ class DeliveryController extends Controller
         ]);
 
         $delivery->update($validated);
+        $this->clearStatsCache($farmOwner->id);
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Delivery updated.');
     }
@@ -155,6 +176,7 @@ class DeliveryController extends Controller
         ]);
 
         $delivery->assignDriver($validated['driver_id'], Auth::id());
+        $this->clearStatsCache($farmOwner->id);
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Driver assigned.');
     }
@@ -166,6 +188,7 @@ class DeliveryController extends Controller
         abort_unless($delivery->driver_id, 403, 'Assign driver first.');
 
         $delivery->dispatch();
+        $this->clearStatsCache($farmOwner->id);
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Delivery dispatched.');
     }
@@ -188,6 +211,8 @@ class DeliveryController extends Controller
             $delivery->update(['cod_collected' => $validated['cod_collected']]);
         }
 
+        $this->clearStatsCache($farmOwner->id);
+
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Delivery completed.');
     }
 
@@ -201,6 +226,7 @@ class DeliveryController extends Controller
         ]);
 
         $delivery->markFailed($validated['failure_reason']);
+        $this->clearStatsCache($farmOwner->id);
 
         return redirect()->route('deliveries.show', $delivery)->with('success', 'Delivery marked as failed.');
     }

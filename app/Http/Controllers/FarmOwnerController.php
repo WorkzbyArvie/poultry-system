@@ -127,6 +127,15 @@ class FarmOwnerController extends Controller
             ->latest('created_at')
             ->paginate(10);
 
-        return view('farmowner.subscriptions', compact('subscriptions'));
+        $activeSubscription = $farm_owner->subscriptions()
+            ->where('status', 'active')
+            ->where('ends_at', '>', now())
+            ->select('id', 'farm_owner_id', 'plan_type', 'status', 'product_limit', 'ends_at')
+            ->latest('ends_at')
+            ->first();
+
+        $currentProducts = $farm_owner->products()->count();
+
+        return view('farmowner.subscriptions', compact('subscriptions', 'activeSubscription', 'currentProducts'));
     }
 }

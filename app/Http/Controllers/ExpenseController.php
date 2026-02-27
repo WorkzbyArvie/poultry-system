@@ -35,21 +35,28 @@ class ExpenseController extends Controller
 
         if ($request->filled('month')) {
             $date = Carbon::parse($request->month);
-            $query->whereMonth('expense_date', $date->month)
-                  ->whereYear('expense_date', $date->year);
+            $monthStart = $date->copy()->startOfMonth()->toDateString();
+            $nextMonthStart = $date->copy()->startOfMonth()->addMonth()->toDateString();
+
+            $query->where('expense_date', '>=', $monthStart)
+                ->where('expense_date', '<', $nextMonthStart);
         }
 
         $expenses = $query->latest('expense_date')->paginate(20);
 
         $stats = Cache::remember("farm_{$farmOwner->id}_expense_stats", 300, function () use ($farmOwner) {
+            $thisMonthStart = now()->startOfMonth()->toDateString();
+            $nextMonthStart = now()->startOfMonth()->addMonth()->toDateString();
+
             return [
                 'total_this_month' => Expense::byFarmOwner($farmOwner->id)
-                    ->whereMonth('expense_date', now()->month)
-                    ->whereYear('expense_date', now()->year)
+                    ->where('expense_date', '>=', $thisMonthStart)
+                    ->where('expense_date', '<', $nextMonthStart)
                     ->sum('total_amount'),
-                'unpaid' => Expense::byFarmOwner($farmOwner->id)->where('payment_status', 'unpaid')->sum('total_amount'),
+                'unpaid' => Expense::byFarmOwner($farmOwner->id)->whereIn('payment_status', ['pending', 'overdue'])->sum('total_amount'),
                 'by_category' => Expense::byFarmOwner($farmOwner->id)
-                    ->whereMonth('expense_date', now()->month)
+                    ->where('expense_date', '>=', $thisMonthStart)
+                    ->where('expense_date', '<', $nextMonthStart)
                     ->selectRaw('category, SUM(total_amount) as total')
                     ->groupBy('category')
                     ->pluck('total', 'category'),

@@ -19,15 +19,11 @@
                 <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
                     <h3 class="text-lg font-bold text-white mb-4">Your Current Subscription</h3>
                     
-                    @if(Auth::user()->farmOwner && Auth::user()->farmOwner->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->exists())
-                    @php
-                    $active_sub = Auth::user()->farmOwner->subscriptions()->where('status', 'active')->where('ends_at', '>', now())->first();
-                    $current_products = Auth::user()->farmOwner->products()->count();
-                    @endphp
+                    @if($activeSubscription)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div class="bg-green-900/30 p-4 rounded-lg border border-green-700">
                             <p class="text-sm text-gray-400 mb-2">Plan Type</p>
-                            <p class="text-2xl font-bold text-green-600">{{ ucfirst($active_sub->plan_type ?? 'Standard') }}</p>
+                            <p class="text-2xl font-bold text-green-600">{{ ucfirst($activeSubscription->plan_type ?? 'Standard') }}</p>
                         </div>
                         
                         <div class="bg-blue-900/30 p-4 rounded-lg border border-blue-700">
@@ -37,21 +33,21 @@
 
                         <div class="bg-purple-900/30 p-4 rounded-lg border border-purple-700">
                             <p class="text-sm text-gray-400 mb-2">Products Used</p>
-                            <p class="font-bold {{ $active_sub->product_limit && $current_products >= $active_sub->product_limit ? 'text-red-400' : 'text-purple-600' }}">
-                                {{ $current_products }} / {{ $active_sub->product_limit ?? '∞' }}
+                            <p class="font-bold {{ $activeSubscription->product_limit && $currentProducts >= $activeSubscription->product_limit ? 'text-red-400' : 'text-purple-600' }}">
+                                {{ $currentProducts }} / {{ $activeSubscription->product_limit ?? '∞' }}
                             </p>
                         </div>
 
                         <div class="bg-orange-900/30 p-4 rounded-lg border border-orange-700">
                             <p class="text-sm text-gray-400 mb-2">Days Remaining</p>
-                            <p class="font-bold text-orange-600">{{ max(0, (int) now()->diffInDays($active_sub->ends_at, false)) }} days</p>
+                            <p class="font-bold text-orange-600">{{ max(0, (int) now()->diffInDays($activeSubscription->ends_at, false)) }} days</p>
                         </div>
                     </div>
 
-                    @if($active_sub->product_limit && $current_products >= $active_sub->product_limit)
+                    @if($activeSubscription->product_limit && $currentProducts >= $activeSubscription->product_limit)
                     <div class="mt-4 bg-yellow-900/30 p-4 rounded-lg border border-yellow-600">
                         <p class="text-yellow-400 font-semibold">⚠️ Product Limit Reached</p>
-                        <p class="text-yellow-500 text-sm mt-1">You've used all {{ $active_sub->product_limit }} product slots. Upgrade your plan to add more products.</p>
+                        <p class="text-yellow-500 text-sm mt-1">You've used all {{ $activeSubscription->product_limit }} product slots. Upgrade your plan to add more products.</p>
                     </div>
                     @endif
                     @else

@@ -20,31 +20,39 @@ class IncomeController extends Controller
     public function index(Request $request)
     {
         $farmOwner = $this->getFarmOwner();
+        $selectedSource = $request->input('source', $request->input('category'));
         
         $query = IncomeRecord::byFarmOwner($farmOwner->id)
             ->with('recordedBy:id,name')
             ->select('id', 'income_number', 'order_id', 'category', 'description', 'amount', 'income_date', 'payment_method', 'recorded_by');
 
-        if ($request->filled('category')) {
-            $query->byCategory($request->category);
+        if (!empty($selectedSource)) {
+            $query->where('category', $selectedSource);
         }
 
         if ($request->filled('month')) {
             $date = Carbon::parse($request->month);
-            $query->whereMonth('income_date', $date->month)
-                  ->whereYear('income_date', $date->year);
+            $monthStart = $date->copy()->startOfMonth()->toDateString();
+            $nextMonthStart = $date->copy()->startOfMonth()->addMonth()->toDateString();
+
+            $query->where('income_date', '>=', $monthStart)
+                ->where('income_date', '<', $nextMonthStart);
         }
 
         $incomes = $query->latest('income_date')->paginate(20);
 
         $stats = Cache::remember("farm_{$farmOwner->id}_income_stats", 300, function () use ($farmOwner) {
+            $thisMonthStart = now()->startOfMonth()->toDateString();
+            $nextMonthStart = now()->startOfMonth()->addMonth()->toDateString();
+
             return [
                 'total_this_month' => IncomeRecord::byFarmOwner($farmOwner->id)
-                    ->whereMonth('income_date', now()->month)
-                    ->whereYear('income_date', now()->year)
+                    ->where('income_date', '>=', $thisMonthStart)
+                    ->where('income_date', '<', $nextMonthStart)
                     ->sum('amount'),
-                'by_category' => IncomeRecord::byFarmOwner($farmOwner->id)
-                    ->whereMonth('income_date', now()->month)
+                'by_source' => IncomeRecord::byFarmOwner($farmOwner->id)
+                    ->where('income_date', '>=', $thisMonthStart)
+                    ->where('income_date', '<', $nextMonthStart)
                     ->selectRaw('category, SUM(amount) as total')
                     ->groupBy('category')
                     ->pluck('total', 'category'),
